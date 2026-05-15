@@ -1,0 +1,264 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background-color: rgba(14, 165, 233, 0.25);
+}
+
+:root {
+  color-scheme: light;
+  
+  /* Material Design 3 - Light Theme Colors */
+  --md-sys-color-primary: #1a73e8;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d0bfff;
+  --md-sys-color-on-primary-container: #370b1e;
+  
+  --md-sys-color-secondary: #625b71;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #e8def8;
+  --md-sys-color-on-secondary-container: #1e192b;
+  
+  --md-sys-color-tertiary: #7d5260;
+  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-tertiary-container: #ffd8e4;
+  --md-sys-color-on-tertiary-container: #31111d;
+  
+  --md-sys-color-error: #b3261e;
+  --md-sys-color-error-container: #f9dedc;
+  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-on-error-container: #410e0b;
+  
+  --md-sys-color-background: #f8f9fa;
+  --md-sys-color-on-background: #1a1a1a;
+  
+  --md-sys-color-surface: #fffbfe;
+  --md-sys-color-on-surface: #1a1a1a;
+  --md-sys-color-surface-variant: #e7e0ec;
+  --md-sys-color-on-surface-variant: #49454e;
+  
+  /* Material Design 3 - State Layers */
+  --md-sys-state-hover: rgba(25, 103, 232, 0.08);
+  --md-sys-state-focus: rgba(25, 103, 232, 0.12);
+  --md-sys-state-pressed: rgba(25, 103, 232, 0.12);
+  --md-sys-state-dragged: rgba(25, 103, 232, 0.16);
+  
+  /* Elevation / Surface Tint */
+  --md-sys-elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.12), 0 1px 2px 0 rgba(0, 0, 0, 0.24);
+  --md-sys-elevation-2: 0 2px 6px 2px rgba(0, 0, 0, 0.12), 0 1px 2px 0 rgba(0, 0, 0, 0.24);
+  --md-sys-elevation-3: 0 4px 8px 3px rgba(0, 0, 0, 0.12), 0 1px 3px 0 rgba(0, 0, 0, 0.24);
+  --md-sys-elevation-4: 0 5px 10px 4px rgba(0, 0, 0, 0.12), 0 2px 3px 0 rgba(0, 0, 0, 0.24);
+  --md-sys-elevation-5: 0 7px 12px 6px rgba(0, 0, 0, 0.12), 0 2px 4px 0 rgba(0, 0, 0, 0.24);
+  
+  /* Brand Color Variables for Theme Picker */
+  --brand-color: #3f51b5; /* Indigo primary */
+  --brand-surface: #303f9f; /* Indigo surface */
+  --text-on-brand: #ffffff; /* White text on brand */
+}
+
+/* Dark Theme - Material Design 3 */
+.theme-dark {
+  color-scheme: dark;
+  
+  --md-sys-color-primary: #9678ff;
+  --md-sys-color-on-primary: #370b1e;
+  --md-sys-color-primary-container: #5a0033;
+  --md-sys-color-on-primary-container: #f3e0ff;
+  
+  --md-sys-color-secondary: #cbc7db;
+  --md-sys-color-on-secondary: #332d44;
+  --md-sys-color-secondary-container: #4a445c;
+  --md-sys-color-on-secondary-container: #e8def8;
+  
+  --md-sys-color-tertiary: #ffb8d0;
+  --md-sys-color-on-tertiary: #492532;
+  --md-sys-color-tertiary-container: #633b48;
+  --md-sys-color-on-tertiary-container: #ffd8e4;
+  
+  --md-sys-color-error: #f2b8b5;
+  --md-sys-color-error-container: #8c1d18;
+  --md-sys-color-on-error: #601410;
+  --md-sys-color-on-error-container: #f9dedc;
+  
+  --md-sys-color-background: #202124;
+  --md-sys-color-on-background: #e8eaed;
+  
+  --md-sys-color-surface: #1a1b1f;
+  --md-sys-color-on-surface: #e8eaed;
+  --md-sys-color-surface-variant: #49454e;
+  --md-sys-color-on-surface-variant: #cac7d0;
+  
+  /* Material Design 3 - State Layers (Dark) */
+  --md-sys-state-hover: rgba(150, 120, 255, 0.08);
+  --md-sys-state-focus: rgba(150, 120, 255, 0.12);
+  --md-sys-state-pressed: rgba(150, 120, 255, 0.12);
+  --md-sys-state-dragged: rgba(150, 120, 255, 0.16);
+  
+  /* Elevation / Surface Tint (Dark) */
+  --md-sys-elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --md-sys-elevation-2: 0 2px 6px 2px rgba(0, 0, 0, 0.3), 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --md-sys-elevation-3: 0 4px 8px 3px rgba(0, 0, 0, 0.3), 0 1px 3px 0 rgba(0, 0, 0, 0.4);
+  --md-sys-elevation-4: 0 5px 10px 4px rgba(0, 0, 0, 0.3), 0 2px 3px 0 rgba(0, 0, 0, 0.4);
+  --md-sys-elevation-5: 0 7px 12px 6px rgba(0, 0, 0, 0.3), 0 2px 4px 0 rgba(0, 0, 0, 0.4);
+  
+  /* Backward Compatibility Aliases */
+  --bg: var(--md-sys-color-background);
+  --main-text: var(--md-sys-color-on-background);
+  --card-bg: var(--md-sys-color-surface);
+  --surface: var(--md-sys-color-surface-variant);
+  --accent: var(--md-sys-color-primary);
+  --muted: var(--md-sys-color-on-surface-variant);
+  --shadow: var(--md-sys-elevation-2);
+  --success: #81c784;
+  --error: var(--md-sys-color-error);
+  --warning: #ffb74d;
+}
+
+/* Dim Theme - Material Design 3 */
+.theme-dim {
+  color-scheme: dark;
+  
+  --md-sys-color-primary: #7e57f4;
+  --md-sys-color-on-primary: #2a0051;
+  --md-sys-color-primary-container: #4a0080;
+  --md-sys-color-on-primary-container: #e8d9ff;
+  
+  --md-sys-color-secondary: #b9b1c9;
+  --md-sys-color-on-secondary: #2d2736;
+  --md-sys-color-secondary-container: #3f3749;
+  --md-sys-color-on-secondary-container: #d9d0e4;
+  
+  --md-sys-color-tertiary: #f5a5c5;
+  --md-sys-color-on-tertiary: #3d1f2d;
+  --md-sys-color-tertiary-container: #54313f;
+  --md-sys-color-on-tertiary-container: #ffd8e4;
+  
+  --md-sys-color-error: #e8b0a6;
+  --md-sys-color-error-container: #78110d;
+  --md-sys-color-on-error: #4d0a05;
+  --md-sys-color-on-error-container: #f9e1df;
+  
+  --md-sys-color-background: #1a1a1a;
+  --md-sys-color-on-background: #e5e1e6;
+  
+  --md-sys-color-surface: #131316;
+  --md-sys-color-on-surface: #e5e1e6;
+  --md-sys-color-surface-variant: #3e3a44;
+  --md-sys-color-on-surface-variant: #b9b5be;
+  
+  /* Material Design 3 - State Layers (Dim) */
+  --md-sys-state-hover: rgba(126, 87, 244, 0.08);
+  --md-sys-state-focus: rgba(126, 87, 244, 0.12);
+  --md-sys-state-pressed: rgba(126, 87, 244, 0.12);
+  --md-sys-state-dragged: rgba(126, 87, 244, 0.16);
+  
+  /* Elevation / Surface Tint (Dim) */
+  --md-sys-elevation-1: 0 1px 3px 1px rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --md-sys-elevation-2: 0 2px 6px 2px rgba(0, 0, 0, 0.5), 0 1px 2px 0 rgba(0, 0, 0, 0.6);
+  --md-sys-elevation-3: 0 4px 8px 3px rgba(0, 0, 0, 0.5), 0 1px 3px 0 rgba(0, 0, 0, 0.6);
+  --md-sys-elevation-4: 0 5px 10px 4px rgba(0, 0, 0, 0.5), 0 2px 3px 0 rgba(0, 0, 0, 0.6);
+  --md-sys-elevation-5: 0 7px 12px 6px rgba(0, 0, 0, 0.5), 0 2px 4px 0 rgba(0, 0, 0, 0.6);
+  
+  /* Backward Compatibility Aliases */
+  --bg: var(--md-sys-color-background);
+  --main-text: var(--md-sys-color-on-background);
+  --card-bg: var(--md-sys-color-surface);
+  --surface: var(--md-sys-color-surface-variant);
+  --accent: var(--md-sys-color-primary);
+  --muted: var(--md-sys-color-on-surface-variant);
+  --shadow: var(--md-sys-elevation-2);
+  --success: #66bb6a;
+  --error: var(--md-sys-color-error);
+  --warning: #ffa726;
+}
+
+
+.theme-card {
+  background: var(--card-bg);
+  color: var(--main-text);
+}
+
+.theme-panel {
+  background: var(--surface);
+  color: var(--main-text);
+}
+
+.theme-card,
+.theme-panel {
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+.theme-dark .bg-white,
+.theme-dim .bg-white {
+  background-color: var(--card-bg) !important;
+  color: var(--main-text) !important;
+}
+
+.theme-dark .bg-slate-100,
+.theme-dim .bg-slate-100 {
+  background-color: var(--surface) !important;
+}
+
+.theme-dark .text-slate-950,
+.theme-dim .text-slate-950 {
+  color: var(--main-text) !important;
+}
+
+.theme-dark .text-slate-700,
+.theme-dim .text-slate-700,
+.theme-dark .text-slate-500,
+.theme-dim .text-slate-500 {
+  color: var(--muted) !important;
+}
+
+.theme-dark .border-slate-200,
+.theme-dim .border-slate-200 {
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+.theme-dark .shadow-slate-200\/70,
+.theme-dim .shadow-slate-200\/70 {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Brand Color Focus States */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--brand-color);
+  box-shadow: 0 0 0 3px rgba(var(--brand-color-rgb, 63, 81, 181), 0.1);
+}
+
+button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(var(--brand-color-rgb, 63, 81, 181), 0.1);
+}

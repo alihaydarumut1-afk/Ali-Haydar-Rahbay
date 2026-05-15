@@ -1,0 +1,111 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx}'],
+  theme: {
+    extend: {
+      colors: {
+        /* Material Design 3 - Primary (Google Blue) */
+        primary: {
+          0: '#ffffff',
+          10: '#f3f0ff',
+          20: '#ede0ff',
+          25: '#e8d9ff',
+          30: '#e0d0ff',
+          35: '#d9c7ff',
+          40: '#d0bfff',
+          50: '#c7b8ff',
+          60: '#b89dff',
+          70: '#a78cff',
+          80: '#9678ff',
+          90: '#8567ff',
+          95: '#7e57f4',
+          99: '#1a73e8',
+          100: '#000000',
+        },
+        /* Material Design 3 - Secondary */
+        secondary: {
+          0: '#ffffff',
+          10: '#f2f0f9',
+          20: '#e7e0f3',
+          25: '#e2d9f0',
+          30: '#ddd1eb',
+          40: '#cfc9dd',
+          50: '#c8c1d8',
+          60: '#b9b1c9',
+          70: '#aaa2bb',
+          80: '#9b93ad',
+          90: '#8d859f',
+          95: '#837d96',
+          99: '#5a5a66',
+          100: '#000000',
+        },
+        /* Material Design 3 - Tertiary */
+        tertiary: {
+          0: '#ffffff',
+          10: '#fdf8f6',
+          20: '#f9efeb',
+          25: '#f7e9e3',
+          30: '#f5e2db',
+          40: '#e8cfc4',
+          50: '#debeae',
+          60: '#d4ac97',
+          70: '#c89b81',
+          80: '#bf8a6b',
+          90: '#b67955',
+          95: '#b07149',
+          99: '#9d7a6f',
+          100: '#000000',
+        },
+        /* Material Design 3 - Neutral (Backgrounds) */
+        neutral: {
+          0: '#ffffff',
+          4: '#f8f9fa',
+          10: '#f3f3f7',
+          20: '#e8e8f2',
+          25: '#e3e3ed',
+          30: '#dee0ea',
+          40: '#cfd0db',
+          50: '#c8c9d5',
+          60: '#b9bac7',
+          70: '#aaaab8',
+          80: '#9c9caa',
+          90: '#8e8e9c',
+          95: '#8a8a92',
+          99: '#202124',
+          100: '#000000',
+        },
+        /* Material Design 3 - Error */
+        error: {
+          0: '#ffffff',
+          10: '#fdf8f7',
+          20: '#fbe7e0',
+          25: '#f9dfd8',
+          30: '#f7d7cf',
+          40: '#efc5ba',
+          50: '#e8b4a6',
+          60: '#dfa39c',
+          70: '#d79291',
+          80: '#cf8086',
+          90: '#ca7a7a',
+          95: '#c57070',
+          99: '#b3261e',
+          100: '#000000',
+        },
+      },
+      transformStyle: {
+        'preserve-3d': 'preserve-3d',
+      },
+      backfaceVisibility: {
+        'hidden': 'hidden',
+      },
+      rotate: {
+        'y-180': 'rotateY(180deg)',
+      },
+      perspective: {
+        '1000': '1000px',
+      },
+    },
+  },
+  plugins: [],
+}
+

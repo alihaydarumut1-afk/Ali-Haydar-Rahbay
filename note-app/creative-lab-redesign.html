@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word Arsenal | Creative Lab</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+
+        :root {
+            --bg-base: #0F0F12;
+            --bg-surface: #1A1A22;
+            --bg-surface-elevated: #22222E;
+            --accent: #6C63FF;
+            --accent-glow: rgba(108, 99, 255, 0.2);
+            --text-primary: #F0EEF8;
+            --text-secondary: #8B8A9B;
+            --border-light: rgba(255, 255, 255, 0.08);
+            --border-active: rgba(108, 99, 255, 0.5);
+            --success: #10B981;
+            
+            --font-display: 'Syne', sans-serif;
+            --font-body: 'Inter', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-base);
+            background-image: radial-gradient(var(--border-light) 1px, transparent 1px);
+            background-size: 24px 24px;
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 3rem 2rem;
+            line-height: 1.6;
+        }
+
+        /* --- API STATUS PILL --- */
+        .api-status {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            z-index: 100;
+            backdrop-filter: blur(8px);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* --- LAYOUT --- */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 3rem;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* --- TYPOGRAPHY --- */
+        .title-display {
+            font-family: var(--font-display);
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .section-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .category-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--text-primary);
+            margin: 2rem 0 1rem 0;
+            padding-left: 0.75rem;
+            border-left: 2px solid var(--accent);
+        }
+
+        /* --- LEFT PANEL: WORD ARSENAL --- */
+        .panel-left {
+            position: sticky;
+            top: 3rem;
+            height: calc(100vh - 6rem);
+            overflow-y: auto;
+            padding-right: 1rem;
+        }
+
+        /* Custom Scrollbar for panel */
+        .panel-left::-webkit-scrollbar { width: 4px; }
+        .panel-left::-webkit-scrollbar-track { background: transparent; }
+        .panel-left::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+
+        .word-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .chip {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chip:hover {
+            border-color: var(--border-active);
+            color: var(--text-primary);
+            transform: translateY(-1px);
+        }
+
+        .chip.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 12px var(--accent-glow);
+        }
+
+        .chip i {
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .chip.active i {
+            display: block;
+        }
+
+        /* --- RIGHT PANEL: WORKSPACE --- */
+        .panel-right {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+
+        /* Selected Words Area */
+        .selected-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .counter-badge {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-primary);
+            background: var(--bg-surface-elevated);
+            padding: 0.25rem 0.75rem;
+            border-radius: 99px;
+            border: 1px solid var(--border-light);
+        }
+
+        .selected-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            min-height: 40px;
+        }
+
+        .selected-tags:empty::after {
+            content: "No tokens selected. Select words from the arsenal.";
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
+        .tag {
+            background: var(--bg-surface-elevated);
+            border: 1px solid var(--border-active);
+            color: var(--accent);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            animation: fade-in 0.2s ease-out;
+        }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Level Selector */
+        .segmented-control {
+            display: flex;
+            background: var(--bg-base);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 0.35rem;
+            gap: 0.35rem;
+        }
+
+        .segment-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.75rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .segment-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .segment-btn.active {
+            background: var(--bg-surface-elevated);
+            color: var(--text-primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        /* Format Selector */
+        .format-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .format-card {
+            background: var(--bg-base);
+            border: 1px solid var(--border-light);
+            border-top: 3px solid transparent;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-secondary);
+        }
+
+        .format-card:hover {
+            border-color: var(--border-active);
+            color: var(--text-primary);
+            background: var(--bg-surface-elevated);
+        }
+
+        .format-card.active {
+            border-top-color: var(--accent);
+            border-left-color: var(--border-active);
+            border-right-color: var(--border-active);
+            border-bottom-color: var(--border-active);
+            background: var(--bg-surface-elevated);
+            color: var(--text-primary);
+        }
+
+        .format-card i {
+            font-size: 2rem;
+        }
+
+        .format-card span {
+            font-family: var(--font-display);
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        /* Creation Studio */
+        .studio-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .action-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .ghost-link {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: color 0.15s ease;
+        }
+
+        .ghost-link:hover {
+            color: var(--text-primary);
+        }
+
+        .output-card {
+            background: var(--bg-base);
+            border: 1px solid var(--border-light);
+            border-left: 3px solid var(--accent);
+            border-radius: 12px;
+            padding: 1.5rem;
+            min-height: 200px;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .output-card.loaded {
+            color: var(--text-primary);
+        }
+
+        .shimmer {
+            background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-surface-elevated) 50%, var(--bg-surface) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+            height: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .shimmer:last-child { width: 60%; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        .action-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.85rem 1.5rem;
+            border-radius: 8px;
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            flex: 1;
+            justify-content: center;
+        }
+
+        .btn-primary:hover {
+            background: #5b54e0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px var(--accent-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .btn-secondary:hover {
+            background: var(--accent-glow);
+        }
+
+        .btn-ghost {
+            background: var(--bg-surface-elevated);
+            border: 1px solid var(--border-light);
+            color: var(--text-primary);
+        }
+
+        .btn-ghost:hover {
+            background: var(--bg-base);
+            border-color: var(--text-secondary);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- API Status Pill -->
+    <div class="api-status">
+        <div class="status-dot"></div>
+        AI CONNECTED
+    </div>
+
+    <div class="container">
+        
+        <!-- LEFT PANEL: Word Arsenal -->
+        <aside class="panel-left">
+            <h1 class="title-display">Arsenal.</h1>
+            <span class="section-label">Token Palette</span>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 2rem;">Select operational tokens to inject into the semantic engine.</p>
+
+            <div id="arsenal-container">
+                <!-- Populated by JS -->
+            </div>
+        </aside>
+
+        <!-- RIGHT PANEL: Workspace -->
+        <main class="panel-right">
+            
+            <!-- Setup Card -->
+            <div class="card" style="display: flex; flex-direction: column; gap: 2rem;">
+                
+                <!-- Selected Words -->
+                <div>
+                    <div class="selected-header">
+                        <span class="section-label" style="margin: 0;">Active Tokens</span>
+                        <div class="counter-badge"><span id="sel-count">0</span> / 21</div>
+                    </div>
+                    <div class="selected-tags" id="selected-tags">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Level Selector -->
+                <div>
+                    <span class="section-label">Target Protocol (CEFR)</span>
+                    <div class="segmented-control" id="level-selector">
+                        <button class="segment-btn" data-level="A1-A2">A1-A2 (Beginner)</button>
+                        <button class="segment-btn active" data-level="B1-B2">B1-B2 (Intermediate)</button>
+                        <button class="segment-btn" data-level="C1-C2">C1-C2 (Advanced)</button>
+                    </div>
+                </div>
+
+                <!-- Format Selector -->
+                <div>
+                    <span class="section-label">Output Schema</span>
+                    <div class="format-grid" id="format-selector">
+                        <div class="format-card active" data-format="dialogue">
+                            <i class="ti ti-messages"></i>
+                            <span>Günlük Diyalog</span>
+                        </div>
+                        <div class="format-card" data-format="academic">
+                            <i class="ti ti-school"></i>
+                            <span>Akademik Metin</span>
+                        </div>
+                        <div class="format-card" data-format="news">
+                            <i class="ti ti-news"></i>
+                            <span>Gazete Küpürü</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Creation Studio Card -->
+            <div class="card">
+                <div class="studio-header">
+                    <h2 class="title-display" style="font-size: 1.5rem; margin:0;">Studio.</h2>
+                    <div class="action-links">
+                        <button class="ghost-link"><i class="ti ti-copy"></i> Prompt Kopyala</button>
+                        <button class="ghost-link"><i class="ti ti-archive"></i> Arşiv (5)</button>
+                    </div>
+                </div>
+
+                <div class="output-card" id="output-card">
+                    Awaiting initialization sequence... Select tokens and parameters to generate content.
+                </div>
+
+                <div class="action-row">
+                    <button class="btn btn-primary" id="btn-generate">
+                        <i class="ti ti-sparkles"></i> İçerik Üret
+                    </button>
+                    <button class="btn btn-ghost" id="btn-copy">
+                        <i class="ti ti-copy"></i> Çıktı Kopyala
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="ti ti-microphone"></i> Pratik Yap
+                    </button>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- DATA ---
+        const mockWords = [
+            { id: '1', english: 'Consciousness', type: 'Noun' },
+            { id: '2', english: 'Paradigm', type: 'Noun' },
+            { id: '3', english: 'Dichotomy', type: 'Noun' },
+            { id: '4', english: 'Determine', type: 'Verb' },
+            { id: '5', english: 'Mitigate', type: 'Verb' },
+            { id: '6', english: 'Elucidate', type: 'Verb' },
+            { id: '7', english: 'Crucial', type: 'Adjective' },
+            { id: '8', english: 'Ambiguous', type: 'Adjective' },
+            { id: '9', english: 'Ubiquitous', type: 'Adjective' },
+            { id: '10', english: 'Give up', type: 'Phrasal Verb' },
+            { id: '11', english: 'Look into', type: 'Phrasal Verb' },
+            { id: '12', english: 'Carry out', type: 'Phrasal Verb' },
+        ];
+
+        // --- STATE ---
+        let selectedIds = new Set();
+        let currentLevel = 'B1-B2';
+        let currentFormat = 'dialogue';
+        let isGenerating = false;
+
+        // --- DOM ELEMENTS ---
+        const arsenalContainer = document.getElementById('arsenal-container');
+        const selectedTagsContainer = document.getElementById('selected-tags');
+        const selCount = document.getElementById('sel-count');
+        const btnGenerate = document.getElementById('btn-generate');
+        const outputCard = document.getElementById('output-card');
+
+        // --- INITIALIZE ARSENAL ---
+        function renderArsenal() {
+            const categories = ['Noun', 'Verb', 'Adjective', 'Phrasal Verb'];
+            let html = '';
+
+            categories.forEach(cat => {
+                const wordsInCat = mockWords.filter(w => w.type === cat);
+                if (wordsInCat.length === 0) return;
+
+                html += `<h3 class="category-label">${cat}S</h3><div class="word-chips">`;
+                wordsInCat.forEach(word => {
+                    html += `
+                        <div class="chip" data-id="${word.id}" onclick="toggleWord('${word.id}')">
+                            <i class="ti ti-check"></i> ${word.english}
+                        </div>
+                    `;
+                });
+                html += `</div>`;
+            });
+            arsenalContainer.innerHTML = html;
+        }
+
+        // --- LOGIC ---
+        window.toggleWord = function(id) {
+            if (selectedIds.has(id)) {
+                selectedIds.delete(id);
+            } else {
+                selectedIds.add(id);
+            }
+            updateUI();
+        };
+
+        function updateUI() {
+            // Update Chips
+            document.querySelectorAll('.chip').forEach(chip => {
+                if (selectedIds.has(chip.dataset.id)) {
+                    chip.classList.add('active');
+                } else {
+                    chip.classList.remove('active');
+                }
+            });
+
+            // Update Counter
+            selCount.innerText = selectedIds.size;
+
+            // Update Selected Tags
+            let tagsHtml = '';
+            selectedIds.forEach(id => {
+                const word = mockWords.find(w => w.id === id);
+                tagsHtml += `
+                    <div class="tag">
+                        ${word.english}
+                    </div>
+                `;
+            });
+            selectedTagsContainer.innerHTML = tagsHtml;
+        }
+
+        // --- EVENT LISTENERS ---
+        
+        // Level Selector
+        document.querySelectorAll('.segment-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentLevel = e.target.dataset.level;
+            });
+        });
+
+        // Format Selector
+        document.querySelectorAll('.format-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                document.querySelectorAll('.format-card').forEach(c => c.classList.remove('active'));
+                const target = e.target.closest('.format-card');
+                target.classList.add('active');
+                currentFormat = target.dataset.format;
+            });
+        });
+
+        // Generate Button
+        btnGenerate.addEventListener('click', () => {
+            if (selectedIds.size === 0) {
+                alert("Lütfen önce kelime seçin.");
+                return;
+            }
+            if (isGenerating) return;
+            
+            isGenerating = true;
+            btnGenerate.innerHTML = `<i class="ti ti-loader" style="animation: spin 1s linear infinite;"></i> Processing...`;
+            
+            // Shimmer effect
+            outputCard.classList.remove('loaded');
+            outputCard.innerHTML = `
+                <div class="shimmer"></div>
+                <div class="shimmer"></div>
+                <div class="shimmer"></div>
+            `;
+
+            // Mock API Call
+            setTimeout(() => {
+                isGenerating = false;
+                btnGenerate.innerHTML = `<i class="ti ti-sparkles"></i> İçerik Üret`;
+                outputCard.classList.add('loaded');
+                
+                const selectedEng = Array.from(selectedIds).map(id => mockWords.find(w => w.id === id).english).join(', ');
+
+                outputCard.innerHTML = `
+                    <strong>[System]</strong> Target Protocol: ${currentLevel} | Schema: ${currentFormat}<br><br>
+                    <strong>Subject A:</strong> Have you considered the <span style="color:var(--accent)">consciousness</span> paradigm recently?<br>
+                    <strong>Subject B:</strong> It is <span style="color:var(--accent)">crucial</span> to <span style="color:var(--accent)">look into</span> it before we make decisions.<br><br>
+                    <em>(AI output simulation generated successfully leveraging ${selectedEng}.)</em>
+                `;
+            }, 1500);
+        });
+
+        // Copy Button
+        document.getElementById('btn-copy').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<i class="ti ti-check"></i> Kopyalandı`;
+            setTimeout(() => btn.innerHTML = originalHTML, 2000);
+        });
+
+        // Init
+        renderArsenal();
+
+    </script>
+</body>
+</html>
