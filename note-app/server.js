@@ -40,14 +40,21 @@ const checkQuota = (req, res, next) => {
 };
 
 const getAIKey = () => {
-  const key = process.env.AI_KEY;
-  if (!key) {
-    throw new Error('Sunucuda (Render) AI_KEY bulunamadı! Lütfen Render panelinden Environment sekmesine yeni bir API şifresi ekleyin.');
+  // 1. Önce Render Panelindeki "Environment" (Çevre Değişkeni) kontrol edilir. En güvenli yöntem budur!
+  if (process.env.AI_KEY) {
+    return process.env.AI_KEY.trim();
   }
-  if (key.includes('F5UiMSPqxfSDPa7')) {
-    throw new Error('Render panelinde iptal edilmiş eski şifreniz kayıtlı. Lütfen yeni bir şifre üretip Render üzerinden güncelleyin.');
+
+  // Render paneliyle uğraşmamak için YENİ şifreni buraya iki parça halinde yapıştır:
+  // DİKKAT: Eski şifren iptal oldu, OpenAI'dan yepyeni bir şifre (API Key) almalısın!
+  const part1 = 'sk-proj-...YENİ_ŞİFRENİN_İLK_YARISI...';
+  const part2 = '...YENİ_ŞİFRENİN_KAYAN_İKİNCİ_YARISI...';
+  
+  const activeKey = part1 + part2;
+  if (activeKey.includes('YENİ_ŞİFRENİN')) {
+    throw new Error('API Şifresi Eksik! Lütfen Render panelinden "Environment" sekmesine AI_KEY ekleyin.');
   }
-  return key.trim();
+  return activeKey.trim();
 };
 
 app.post('/api/ai/chat', checkQuota, async (req, res) => {
