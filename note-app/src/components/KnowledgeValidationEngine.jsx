@@ -31,11 +31,11 @@ const getAudioFromDB = async (key) => {
 }
 
 // Yardımcı fonksiyon: API İsteği
-async function fetchAI(prompt) {
+async function fetchAI(prompt, expectJson = false) {
   const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, expectJson: false })
+    body: JSON.stringify({ prompt, expectJson, maxTokens: expectJson ? 8000 : 1500 })
   });
   const data = await response.json();
   if (!response.ok) {
@@ -175,7 +175,7 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
       { "context_paragraph": "A short paragraph (max 2 sentences) using the exact word, but replace the word with '_____'.", "listening_sentence": "A natural, complete English sentence using the word.", "speaking_scenario": "Instruct the user to SPEAK a specific sentence in a specific scenario using this word.", "writing_scenario": "Instruct the user to WRITE an original sentence using this word in a specific context." }`
 
       try {
-        const rawResponse = await fetchAI(prompt)
+        const rawResponse = await fetchAI(prompt, true)
         const cleanJson = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim()
         const parsed = JSON.parse(cleanJson)
         if (isMounted) setTestDataMap(parsed)
@@ -437,7 +437,7 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
       }`
 
       try {
-        const rawResponse = await fetchAI(prompt)
+        const rawResponse = await fetchAI(prompt, true)
         const cleanJson = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim()
         const parsed = JSON.parse(cleanJson)
         
@@ -473,7 +473,7 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
       }`
 
       try {
-        const rawResponse = await fetchAI(prompt)
+        const rawResponse = await fetchAI(prompt, true)
         const cleanJson = rawResponse.replace(/```json/gi, '').replace(/```/g, '').trim()
         const parsed = JSON.parse(cleanJson)
         

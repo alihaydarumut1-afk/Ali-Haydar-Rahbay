@@ -98,15 +98,24 @@ export default function CreativeLab({ words = [], onPractice }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: aiPrompt, expectJson: false })
       });
-      const data = await response.json();
+      
+      const textRaw = await response.text();
+      let data;
+      try {
+        data = textRaw ? JSON.parse(textRaw) : {};
+      } catch (err) {
+        throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
+      }
+
       if (!response.ok) {
-        if (response.status === 429) alert(data.error);
+        alert('Sistem Mesajı: ' + (data.error || 'Yapay Zeka Hatası (Sunucu veya API şifresi kaynaklı)'));
         throw new Error(data.error || 'AI Hatası');
       }
 
       setOutput(data.content)
     } catch (error) {
       console.error('Creative generation error:', error)
+      alert('Bağlantı Hatası: ' + error.message);
       setOutput(`Error: ${error.message}. Please try again.`)
     } finally {
       setIsGenerating(false)

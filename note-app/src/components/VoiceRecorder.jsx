@@ -111,7 +111,7 @@ export default function VoiceRecorder({ onTranscription }) {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        if (response.status === 429) alert(errorData.error);
+        alert('Sistem Mesajı: ' + (errorData.error || 'Ses çözümleme hatası'));
         console.error('API Hatası:', errorData)
         throw new Error(errorData.error?.message || 'API Sunucusu yanıt vermedi.')
       }
@@ -163,7 +163,7 @@ export default function VoiceRecorder({ onTranscription }) {
       })
       const data = await response.json()
       if (!response.ok) {
-        if (response.status === 429) alert(data.error);
+        alert('Sistem Mesajı: ' + (data.error || 'Yapay Zeka Hatası'));
         throw new Error(data.error || 'AI Hatası');
       }
       setAiFeedback(JSON.parse(data.content))

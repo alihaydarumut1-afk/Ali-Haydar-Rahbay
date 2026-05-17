@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { YoutubeTranscript } from 'youtube-transcript';
@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Eğer projede import hatası alırsanız, bu import satırlarını şu şekilde değiştirin:
 // const express = require('express');
@@ -39,8 +41,13 @@ const checkQuota = (req, res, next) => {
 
 const getAIKey = () => {
   const key = process.env.AI_KEY;
-  if (!key) throw new Error('Sunucuda AI_KEY bulunamadı! Lütfen Render panelinden veya .env dosyasından ekleyin.');
-  return key;
+  if (!key) {
+    throw new Error('Sunucuda (Render) AI_KEY bulunamadı! Lütfen Render panelinden Environment sekmesine yeni bir API şifresi ekleyin.');
+  }
+  if (key.includes('F5UiMSPqxfSDPa7')) {
+    throw new Error('Render panelinde iptal edilmiş eski şifreniz kayıtlı. Lütfen yeni bir şifre üretip Render üzerinden güncelleyin.');
+  }
+  return key.trim();
 };
 
 app.post('/api/ai/chat', checkQuota, async (req, res) => {
@@ -61,7 +68,9 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
           ...(expectJson ? { response_format: { type: 'json_object' } } : {})
         })
       });
-      const data = await response.json();
+      const textRaw = await response.text();
+      let data;
+      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`OpenAI geçersiz/boş yanıt döndürdü (${response.status})`); }
       if (!response.ok) throw new Error(data.error?.message || 'OpenAI API Hatası');
       content = data.choices[0].message.content;
     } else {
@@ -78,9 +87,11 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
           }
         })
       });
-      const data = await response.json();
+      const textRaw = await response.text();
+      let data;
+      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`Gemini geçersiz/boş yanıt döndürdü (${response.status})`); }
       if (!response.ok) throw new Error(data.error?.message || 'Gemini API Hatası');
-      content = data.candidates[0].content.parts[0].text;
+      content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
     res.json({ content });
   } catch (err) {
@@ -108,7 +119,9 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
         headers: { 'Authorization': `Bearer ${key}` },
         body: formData
       });
-      const data = await response.json();
+      const textRaw = await response.text();
+      let data;
+      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`OpenAI geçersiz/boş yanıt döndürdü (${response.status})`); }
       if (!response.ok) throw new Error(data.error?.message || 'OpenAI Transcription Hatası');
       text = data.text.trim();
     } else {
@@ -126,7 +139,9 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
           generationConfig: { temperature: 0.1 }
         })
       });
-      const data = await response.json();
+      const textRaw = await response.text();
+      let data;
+      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`Gemini geçersiz/boş yanıt döndürdü (${response.status})`); }
       if (!response.ok) throw new Error(data.error?.message || 'Gemini Transcription Hatası');
       text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     }

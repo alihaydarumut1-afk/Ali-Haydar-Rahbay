@@ -4,7 +4,7 @@ import useWords from '../hooks/useWords.js'
 import useWritingHabits from '../hooks/useWritingHabits.js'
 import UniversalFocusMode from './UniversalFocusMode.jsx'
 
-const defaultKey = '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'
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 // Yapay zekadan dönen kelime türünü WordList sekmeleriyle tam eşleştiren güvenli filtreleyici
 const mapPartOfSpeech = (pos) => {
@@ -18,37 +18,35 @@ const mapPartOfSpeech = (pos) => {
 }
 
 async function fetchAI(prompt, expectJson = false) {
-  const key = localStorage.getItem('geminiApiKey') || defaultKey
-  const maxTokens = 1500
-  if (key.startsWith('sk-')) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: maxTokens,
-        ...(expectJson ? { response_format: { type: 'json_object' } } : {})
-      })
-    })
-    if (!response.ok) throw new Error('OpenAI API Hatası')
-    const data = await response.json()
-    let content = data.choices[0].message.content
-    if (expectJson) return JSON.parse(content.replace(/```json/gi, '').replace(/```/g, '').trim())
-    return content
-  } else {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: maxTokens, ...(expectJson ? { responseMimeType: 'application/json' } : {}) } })
-    })
-    if (!response.ok) throw new Error('Gemini API Hatası')
-    const data = await response.json()
-    let content = data.candidates[0].content.parts[0].text
-    if (expectJson) return JSON.parse(content.replace(/```json/gi, '').replace(/```/g, '').trim())
-    return content
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson, maxTokens: 1500 })
+  });
+  
+  const textRaw = await response.text();
+  let data;
+  try {
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (err) {
+    throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
   }
+
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
+  }
+  if (expectJson) {
+    try {
+      let cleanJson = data.content.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const match = cleanJson.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+      if (match) cleanJson = match[0];
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      throw new Error('Yapay zeka eksik veya hatalı veri döndürdü.');
+    }
+  }
+  return data.content;
 }
 
 async function evaluateEssayWithAI(essay, topic, examType) {

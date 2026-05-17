@@ -16,13 +16,20 @@ const getYouTubeId = (url) => {
 };
 const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
-async function fetchAI(prompt) {
+async function fetchAI(prompt, expectJson = false) {
   const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, expectJson: false })
+    body: JSON.stringify({ prompt, expectJson, maxTokens: expectJson ? 8000 : 1500 })
   });
-  const data = await response.json();
+  
+  const textRaw = await response.text();
+  let data;
+  try {
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (err) {
+    throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
+  }
 
   if (!response.ok) {
     if (response.status === 429) alert(data.error);
@@ -38,7 +45,11 @@ function parseAIJson(content) {
   if (match) {
     jsonText = match[0];
   }
-  return JSON.parse(jsonText);
+  try {
+    return JSON.parse(jsonText);
+  } catch (e) {
+    throw new Error('Yapay zeka eksik veri döndürdü, lütfen tekrar deneyin.');
+  }
 }
 
 export default function ImmersionStudio() {
@@ -155,7 +166,7 @@ export default function ImmersionStudio() {
       }
       
       return await response.json()
-    } catch (error) {
+   } catch (error) {
       if (error.name === 'TypeError' || error.message.includes('Failed to fetch')) {
         throw new Error('SUNUCU_KAPALI')
       }
@@ -164,14 +175,14 @@ export default function ImmersionStudio() {
   }
 
   const generateVideoQuiz = async (transcriptText) => {
-    const prompt = `Aşağıdaki metne dayanarak B1-B2 zorluğunda 10-15 soruluk bir İngilizce test hazırla ve metinde geçen B2 seviyesi ve üstü (B2, C1, C2) önemli kelimeleri listele. Çıktıyı kesinlikle şu JSON formatında ver: 
+    const prompt = `Aşağıdaki metne dayanarak B1-B2 zorluğunda 5-10 soruluk bir İngilizce test hazırla ve metinde geçen B2 seviyesi ve üstü (B2, C1, C2) önemli kelimeleri listele. Çıktıyı kesinlikle şu JSON formatında ver: 
 {
   "questions": [ { "question": "", "options": ["", "", "", ""], "answer": "", "explanation": "Neden bu cevap doğru?" } ],
   "advancedWords": [ { "word": "", "turkishMeaning": "", "type": "Noun|Verb|Adjective|Phrasal Verb", "contextSentence": "" } ]
 }
 Metin: ${transcriptText}`;
     
-    const content = await fetchAI(prompt);
+    const content = await fetchAI(prompt, true);
     const data = parseAIJson(content);
     
     return {
@@ -208,7 +219,7 @@ Metin: ${transcriptText}`;
     const prompt = `Şu an B1-B2 seviyesinde İngilizce öğrenen bir kullanıcı şu cümleyi inceliyor: '${fullSentence}'. Kullanıcı cümleden '${cleanWord}' kelimesini seçti. 1) Bu kelimenin bu cümledeki tam Türkçe anlamını, 2) Cümlede geçen ana gramer yapısını (Örn: Present Perfect, Passive), 3) Bu kelimeyle kurulmuş örnek bir B2 seviyesi cümleyi bana JSON formatında dön: { "translation": "", "grammar_structure": "", "example_sentence": "" }`;
     
     try {
-      const content = await fetchAI(prompt);
+      const content = await fetchAI(prompt, true);
       const data = parseAIJson(content);
       setSelectedAnalysis({ word: cleanWord, sentence: fullSentence, isLoading: false, data, error: null })
     } catch (err) {
@@ -267,7 +278,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
 - Never fabricate grammar rules — if something is informal or colloquial, say so`
 
     try {
-      const content = await fetchAI(prompt);
+      const content = await fetchAI(prompt, true);
       const data = parseAIJson(content);
       setSelectedSentenceAnalysis({ sentence: sentenceItem.text, isLoading: false, data, error: null })
     } catch (err) {
@@ -437,7 +448,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                   const isActive = currentTime >= item.start && currentTime <= item.end;
                   return (
                     <div 
-                      key={item.id} 
+                      key={`ts-${item.id}-${idx}`} 
                       className={`group flex gap-4 rounded-2xl p-3 transition border ${isActive ? 'border-yellow-300 bg-yellow-100 shadow-sm' : 'border-transparent hover:bg-slate-50 dark:hover:bg-zinc-700/30 eye-care:hover:bg-[#FDF6E3]'}`}
                     >
                       <span 
@@ -451,7 +462,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                         <p className={`text-base leading-relaxed cursor-pointer ${isActive ? 'text-slate-900 font-bold dark:text-white eye-care:text-amber-950' : 'text-slate-700 dark:text-zinc-300 eye-care:text-[#3B2F2F]'}`}>
                           {item.text.split(' ').map((word, wIdx) => (
                             <span 
-                              key={wIdx} 
+                              key={`w-${idx}-${wIdx}`} 
                               onClick={(e) => handleWordAnalysis(e, word, item.text)}
                               className={`transition-colors rounded px-0.5 ${isActive ? 'hover:bg-yellow-300' : 'hover:bg-yellow-200 hover:text-slate-900 dark:hover:bg-yellow-500/30 dark:hover:text-yellow-100 eye-care:hover:bg-yellow-300/50'}`}
                             >
@@ -615,7 +626,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                           {quizData.advancedWords.map((word, i) => {
                             const isWordAdded = words.some(w => w.english.toLowerCase() === word.word.toLowerCase());
                             return (
-                            <div key={i} className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm flex flex-col justify-between dark:bg-zinc-800 dark:border-emerald-800/50 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
+                            <div key={`aw-${i}`} className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm flex flex-col justify-between dark:bg-zinc-800 dark:border-emerald-800/50 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                               <div>
                                 <div className="flex justify-between items-center mb-2">
                                   <span className="font-bold text-emerald-700 text-lg dark:text-emerald-400">{word.word}</span>
@@ -639,7 +650,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
 
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2 dark:text-zinc-500 eye-care:text-amber-800/70">Video Bağlamlı Sorular</p>
                     {quizData.questions.map((quiz, qIndex) => (
-                  <div key={quiz.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
+                  <div key={`q-${quiz.id || qIndex}`} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider dark:bg-zinc-700 eye-care:bg-amber-900">
                         Soru {qIndex + 1}
@@ -662,7 +673,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                         }
 
                         return (
-                          <button key={oIndex} disabled={isRevealed} onClick={() => setQuizAnswers({...quizAnswers, [quiz.id]: oIndex})} className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${btnClass}`}>
+                          <button key={`opt-${qIndex}-${oIndex}`} disabled={isRevealed} onClick={() => setQuizAnswers({...quizAnswers, [quiz.id]: oIndex})} className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${btnClass}`}>
                             {opt}
                           </button>
                         )

@@ -12,14 +12,33 @@ async function fetchAI(prompt, expectJson = false, maxTokensOverride = null) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, expectJson, maxTokens: maxTokensOverride })
     });
-    const data = await response.json();
+    
+    const textRaw = await response.text();
+    let data;
+    try {
+      data = textRaw ? JSON.parse(textRaw) : {};
+    } catch (err) {
+      throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
+    }
+
     if (!response.ok) {
-      if (response.status === 429) alert(data.error);
+      alert('Sistem Mesajı: ' + (data.error || 'Yapay Zeka Hatası (Sunucu veya API şifresi kaynaklı)'));
       throw new Error(data.error || 'AI Hatası');
     }
-    return expectJson ? JSON.parse(data.content) : data.content;
+    if (expectJson) {
+      try {
+        let cleanJson = data.content.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const match = cleanJson.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+        if (match) cleanJson = match[0];
+        return JSON.parse(cleanJson);
+      } catch(e) {
+        throw new Error('Yapay zeka eksik veri döndürdü.');
+      }
+    }
+    return data.content;
   } catch (err) {
     console.error(err)
+    alert('Bağlantı Hatası: ' + err.message)
     throw err
   }
 }
@@ -38,7 +57,7 @@ async function transcribeAudioWithAI(blob) {
   })
   const data = await response.json()
   if (!response.ok) {
-    if (response.status === 429) alert(data.error);
+    alert('Sistem Mesajı: ' + (data.error || 'Ses çözümleme hatası'));
     throw new Error(data.error || 'Transcription Hatası');
   }
   return data.text;
@@ -157,8 +176,8 @@ export default function SpeakingStudio() {
         setMessages([{ role: 'ai', content: reply }])
       })
     } catch (err) {
-      console.error(err)
-      throw err // Prompt hatasında uyarı yerine hatayı fırlat
+      console.error('Simulation start error:', err)
+      setStatus('setup') // Hata durumunda takılı kalmaması için setup ekranına geri döndür
     } finally {
       setIsProcessing(false)
     }

@@ -298,8 +298,8 @@ Return ONLY a valid JSON object in this format (no markdown):
 
   if (!words.length) {
     return (
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm shadow-slate-200/70 dark:bg-zinc-900 dark:border-zinc-800">
-        <p className="text-lg font-semibold text-slate-900 dark:text-zinc-100">Add words first to use Quiz mode.</p>
+      <div className="rounded-3xl border border-slate-300 bg-white p-8 text-center shadow-sm dark:bg-slate-900 dark:border-slate-600">
+        <p className="text-lg font-bold text-black dark:text-white">Add words first to use Quiz mode.</p>
       </div>
     )
   }
@@ -307,10 +307,10 @@ Return ONLY a valid JSON object in this format (no markdown):
   return (
     <div className="space-y-6">
       {/* HEADER & DROPDOWN */}
-      <div className="flex flex-col gap-4 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:bg-zinc-900 dark:border-zinc-800 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
+      <div className="flex flex-col gap-4 rounded-3xl border border-slate-300 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:bg-slate-900 dark:border-slate-600 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Quiz Engine</p>
-          <h2 className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-100 eye-care:text-amber-950">
+          <h2 className="mt-1 text-2xl font-bold text-black dark:text-white eye-care:text-amber-950">
             Interactive Testing
           </h2>
         </div>
@@ -318,7 +318,7 @@ Return ONLY a valid JSON object in this format (no markdown):
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex w-full min-w-[220px] items-center justify-between rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-3.5 text-sm font-bold text-zinc-800 transition hover:bg-zinc-100 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 sm:w-auto dark:bg-zinc-800 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-700 dark:focus:ring-indigo-500 eye-care:bg-[#F4ECD8] eye-care:border-amber-200 eye-care:text-amber-950 eye-care:hover:bg-[#EAE0C8]"
+            className="flex w-full min-w-[220px] items-center justify-between rounded-2xl border-2 border-slate-300 bg-white px-5 py-3.5 text-sm font-bold text-black transition hover:bg-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 sm:w-auto dark:bg-black dark:border-slate-500 dark:text-white dark:hover:bg-slate-800 dark:focus:border-indigo-400 eye-care:bg-[#F4ECD8] eye-care:border-amber-200 eye-care:text-amber-950 eye-care:hover:bg-[#EAE0C8]"
           >
             <span className="flex items-center gap-2">
               {MODES.find(m => m.id === quizMode)?.icon} {MODES.find(m => m.id === quizMode)?.label}
@@ -327,12 +327,12 @@ Return ONLY a valid JSON object in this format (no markdown):
           </button>
           
           {isDropdownOpen && (
-            <div className="absolute right-0 top-full mt-2 w-full min-w-[220px] z-50 overflow-hidden rounded-2xl border border-zinc-200 bg-white py-2 shadow-xl animate-fade-in dark:bg-zinc-800 dark:border-zinc-600 dark:shadow-black/50 eye-care:bg-[#FDF6E3] eye-care:border-amber-200 eye-care:shadow-md">
+            <div className="absolute right-0 top-full mt-2 w-full min-w-[220px] z-50 overflow-hidden rounded-2xl border border-slate-300 bg-white py-2 shadow-xl animate-fade-in dark:bg-slate-900 dark:border-slate-600 dark:shadow-black/50 eye-care:bg-[#FDF6E3] eye-care:border-amber-200 eye-care:shadow-md">
               {MODES.map((mode) => (
                 <button
                   key={mode.id}
                   onClick={() => { handleModeChange(mode.id); setIsDropdownOpen(false); }}
-                  className={`flex w-full items-center gap-3 px-5 py-3 text-left text-sm transition ${quizMode === mode.id ? 'bg-indigo-50 text-indigo-700 font-bold dark:bg-indigo-500/20 dark:text-indigo-300 eye-care:bg-[#EAE0C8] eye-care:text-amber-950' : 'font-semibold text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-zinc-100 eye-care:text-amber-900 eye-care:hover:bg-[#F4ECD8]'}`}
+                  className={`flex w-full items-center gap-3 px-5 py-3 text-left text-sm transition ${quizMode === mode.id ? 'bg-indigo-50 text-indigo-700 font-bold dark:bg-indigo-900/30 dark:text-indigo-300 eye-care:bg-[#EAE0C8] eye-care:text-amber-950' : 'font-bold text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 eye-care:text-amber-900 eye-care:hover:bg-[#F4ECD8]'}`}
                 >
                   <span className="text-lg">{mode.icon}</span>
                   {mode.label}
@@ -343,16 +343,12 @@ Return ONLY a valid JSON object in this format (no markdown):
         </div>
       </div>
 
-      <div className="rounded-3xl border border-zinc-200 bg-white p-8 shadow-sm dark:bg-zinc-900 dark:border-zinc-800 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
+      <div className="rounded-3xl border border-slate-300 bg-white p-8 shadow-sm dark:bg-slate-900 dark:border-slate-600 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
         {quizMode === 'synonym-match' ? (
           <SynonymQuiz words={words} />
         ) : questionDeck.length === 0 ? (
           <div className="py-12 flex flex-col items-center text-center">
             <span className="text-4xl mb-4">📝</span>
-            <h3 className="text-xl font-bold text-zinc-900 mb-2 dark:text-zinc-100">Not Enough Data for {MODES.find(m => m.id === quizMode)?.label}</h3>
-            <p className="text-zinc-500 max-w-md dark:text-zinc-400">
-              This mode requires words that have <strong className="text-zinc-700 dark:text-zinc-200">Example Sentences</strong>. Please edit your words in the Word List to add sentences, or choose a different mode.
-            </p>
           </div>
       ) : isFinished ? (
           (() => {
