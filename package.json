@@ -1,7 +1,24 @@
 {
+  "name": "note-app",
+  "version": "1.0.0",
+  "description": "Not Uygulaması",
+  "author": "Alihan",
+  "main": "main.js",
+  "scripts": {
+    "start:web": "node server.js",
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "files": [
+      "**/*",
+      "note-app/dist/**/*"
+    ]
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "openai": "^4.0.0",
     "react-player": "^3.4.0",

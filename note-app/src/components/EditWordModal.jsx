@@ -1,33 +1,19 @@
 import { useState, useEffect } from 'react'
 
-const defaultKey = ''
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 async function fetchAI(prompt) {
-  const key = localStorage.getItem('geminiApiKey') || defaultKey
-  if (key.startsWith('sk-')) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: prompt }],
-        temperature: 0.3,
-        response_format: { type: 'json_object' }
-      })
-    })
-    if (!response.ok) throw new Error('OpenAI API Hatası')
-    const data = await response.json()
-    return JSON.parse(data.choices[0].message.content)
-  } else {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, responseMimeType: 'application/json' } }),
-    })
-    if (!response.ok) throw new Error('Gemini API Hatası')
-    const data = await response.json()
-    return JSON.parse(data.candidates[0].content.parts[0].text)
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson: true })
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
   }
+  return JSON.parse(data.content);
 }
 
 export default function EditWordModal({ isOpen, onClose, word, onUpdate }) {

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Volume2, Loader2 } from 'lucide-react'
 
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
 export default function PronunciationButton({ text, lang = 'en-US' }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -43,14 +45,16 @@ export default function PronunciationButton({ text, lang = 'en-US' }) {
         let audioSource = ''
         let blobToPlay = null
 
-        const apiKey = localStorage.getItem('geminiApiKey')
-        if (apiKey && apiKey.startsWith('sk-')) {
-          const response = await fetch('https://api.openai.com/v1/audio/speech', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'tts-1', voice: lang === 'en-GB' ? 'onyx' : 'alloy', input: text })
-          })
-          if (response.ok) blobToPlay = await response.blob()
+        const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: lang === 'en-GB' ? 'onyx' : 'alloy' })
+        });
+        if (response.ok) {
+          blobToPlay = await response.blob();
+        } else if (response.status === 429) {
+          const err = await response.json();
+          console.error(err.error);
         }
         
         if (!blobToPlay) {

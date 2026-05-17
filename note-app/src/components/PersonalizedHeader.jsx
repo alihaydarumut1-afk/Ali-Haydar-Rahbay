@@ -77,6 +77,7 @@ export default function PersonalizedHeader() {
     const savedPath = localStorage.getItem('lastVisitedPage') || '/flashcard'
     setLastVisitedPath(savedPath)
     const PATH_NAMES = {
+      '/tasks': 'Daily Tasks',
       '/words': 'Word List',
       '/flashcard': 'Flashcards',
       '/quiz': 'Quiz Mode',

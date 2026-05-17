@@ -8,20 +8,22 @@
   "description": "Not Uygulamasi",
   "scripts": {
     "dev": "vite",
-    "server": "node server.js",
-    "build": "vite build",
+    "build": "vite build --emptyOutDir",
+    "start": "node server.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron": "electron . --dev",
-    "desktop": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run electron\"",
-    "build:desktop": "vite build && electron-builder --win",
-    "pack:mac": "vite build && electron-builder --mac zip"
+    "electron:start": "electron .",
+    "electron:build": "electron-builder",
+    "desktop": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run electron:start\"",
+    "build:desktop": "npm run build && npm run electron:build -- --win",
+    "pack:mac": "npm run build && npm run electron:build -- --mac zip",
+    "pack:exe": "npm run build && npm run electron:build -- --win"
   },
   "build": {
-    "appId": "com.aliha.notuygulamasi",
-    "productName": "Not Uygulamasi",
+    "appId": "com.noteapp.desktop",
+    "productName": "NoteApp",
     "directories": {
-      "output": "release/"
+      "output": "release"
     },
     "files": [
       "dist/**/*",
@@ -56,7 +58,7 @@
     "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.5.0",
     "concurrently": "^9.2.1",
-    "electron": "^41.5.0",
+    "electron": "^41.6.1",
     "electron-builder": "^26.8.1",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",

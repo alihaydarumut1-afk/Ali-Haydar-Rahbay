@@ -1,0 +1,8 @@
+node_modules/
+note-app/node_modules/
+note-app/dist/
+dist/
+*.exe
+*.zip
+.env
+.DS_Store

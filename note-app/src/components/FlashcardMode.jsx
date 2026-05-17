@@ -45,15 +45,15 @@ export default function FlashcardMode() {
   if (!words || words.length === 0) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center">
-        <h2 className="text-2xl font-bold text-zinc-700">Hiç kelime yok.</h2>
+        <h2 className="text-2xl font-bold text-zinc-700 dark:text-zinc-300">Hiç kelime yok.</h2>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] w-full bg-zinc-50 p-6">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] w-full bg-zinc-50 p-6 dark:bg-zinc-950">
       {/* Üst Sayaç */}
-      <div className="mb-6 text-lg font-medium text-zinc-500">
+      <div className="mb-6 text-lg font-medium text-zinc-500 dark:text-zinc-400">
         Card {currentIndex + 1} of {words.length}
       </div>
 
@@ -64,22 +64,22 @@ export default function FlashcardMode() {
         <div className={`w-full h-full transition-all duration-500 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
           
           {/* Ön Yüz */}
-          <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] bg-white rounded-3xl shadow-lg border border-zinc-100 flex flex-col items-center justify-center p-8">
+          <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] bg-white rounded-3xl shadow-lg border border-zinc-100 flex flex-col items-center justify-center p-8 dark:bg-zinc-900 dark:border-zinc-800">
             {currentWord.type && (
-              <span className="absolute top-6 right-6 px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full uppercase">
+              <span className="absolute top-6 right-6 px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full uppercase dark:bg-zinc-800 dark:text-zinc-300">
                 {currentWord.type}
               </span>
             )}
-            <h3 className="text-5xl font-bold text-zinc-800">{currentWord.english}</h3>
+            <h3 className="text-5xl font-bold text-zinc-800 dark:text-zinc-100">{currentWord.english}</h3>
           </div>
 
           {/* Arka Yüz */}
-          <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white rounded-3xl shadow-lg border border-zinc-100 flex flex-col items-center justify-center p-8 text-center">
-            <h3 className="text-3xl font-semibold text-zinc-800">{currentWord.turkish}</h3>
+          <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white rounded-3xl shadow-lg border border-zinc-100 flex flex-col items-center justify-center p-8 text-center dark:bg-zinc-900 dark:border-zinc-800">
+            <h3 className="text-3xl font-semibold text-zinc-800 dark:text-zinc-100">{currentWord.turkish}</h3>
             {currentWord.sentence && (
               <>
-                <div className="w-16 h-[1px] bg-gray-300 my-6"></div>
-                <p className="italic text-gray-600 text-lg">"{currentWord.sentence}"</p>
+                <div className="w-16 h-[1px] bg-gray-300 my-6 dark:bg-zinc-700"></div>
+                <p className="italic text-gray-600 text-lg dark:text-zinc-400">"{currentWord.sentence}"</p>
               </>
             )}
           </div>

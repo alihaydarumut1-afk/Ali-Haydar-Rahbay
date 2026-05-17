@@ -2,39 +2,22 @@ import { useState, useEffect, useRef } from 'react'
 import { Bot, Mic, Square, Save, Trash2, RotateCcw, Plus, User } from 'lucide-react'
 import useWords from '../hooks/useWords.js'
 
-const defaultKey = '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'
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 // Yapay Zeka İstek Motoru (Hem Metin Hem JSON formatı için)
 async function fetchAI(prompt, expectJson = false, maxTokensOverride = null) {
-  const key = localStorage.getItem('openAiApiKey') || localStorage.getItem('geminiApiKey') || defaultKey
   try {
-    let content = ''
-    const isJson = expectJson || prompt.includes('JSON') || prompt.includes('json')
-    const maxTokens = maxTokensOverride || (isJson ? 1500 : 100)
-    
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [{ role: 'system', content: prompt }],
-          temperature: 0.7,
-          max_tokens: maxTokens,
-          ...(isJson ? { response_format: { type: 'json_object' } } : {})
-        })
-      })
-    
-      if (!response.ok) throw new Error('OpenAI API Hatası')
-      const data = await response.json()
-      content = data.choices[0].message.content
-
-    if (expectJson) {
-      content = content.replace(/```json/gi, '').replace(/```/g, '').trim()
-      const match = content.match(/\[[\s\S]*\]|\{[\s\S]*\}/)
-      if (match) content = match[0]
-      return JSON.parse(content)
+    const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, expectJson, maxTokens: maxTokensOverride })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      if (response.status === 429) alert(data.error);
+      throw new Error(data.error || 'AI Hatası');
     }
-    return content
+    return expectJson ? JSON.parse(data.content) : data.content;
   } catch (err) {
     console.error(err)
     throw err
@@ -43,21 +26,22 @@ async function fetchAI(prompt, expectJson = false, maxTokensOverride = null) {
 
 // Ses dosyasını (Blob) Yapay Zeka ile Metne Çevirme
 async function transcribeAudioWithAI(blob) {
-  const key = localStorage.getItem('openAiApiKey') || localStorage.getItem('geminiApiKey') || defaultKey
-    const formData = new FormData()
-  const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('wav') ? 'wav' : 'webm'
-    formData.append('file', blob, `audio.${ext}`)
-    formData.append('model', 'whisper-1')
-    formData.append('language', 'en')
-
-  const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${key}` },
-    body: formData
+  const base64Audio = await new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result.split(',')[1])
+    reader.readAsDataURL(blob)
   })
-    if (!response.ok) throw new Error('OpenAI Transcription Hatası')
-    const data = await response.json()
-  return data.text.trim()
+  const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'Transcription Hatası');
+  }
+  return data.text;
 }
 
 // --- KALICI BELLEK (IndexedDB) YÖNETİMİ ---
@@ -173,8 +157,8 @@ export default function SpeakingStudio() {
         setMessages([{ role: 'ai', content: reply }])
       })
     } catch (err) {
-      alert("Failed to start simulation. Please check your API connection.")
-      setStatus('setup')
+      console.error(err)
+      throw err // Prompt hatasında uyarı yerine hatayı fırlat
     } finally {
       setIsProcessing(false)
     }
@@ -184,7 +168,6 @@ export default function SpeakingStudio() {
   const playAiAudio = async (text, onReady) => {
     setIsAiSpeaking(true)
     try {
-      const key = localStorage.getItem('openAiApiKey') || localStorage.getItem('geminiApiKey') || defaultKey
       const cacheKey = `en-US-${text.toLowerCase().trim()}`
       let blobToPlay = null
 
@@ -192,12 +175,13 @@ export default function SpeakingStudio() {
       if (cachedBlob) {
         blobToPlay = cachedBlob
       } else {
-        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'tts-1', voice: 'alloy', input: text })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'alloy' })
         })
         if (response.ok) { blobToPlay = await response.blob(); await saveAudioToDB(cacheKey, blobToPlay); }
+        else if (response.status === 429) { const err = await response.json(); alert(err.error); }
 
       if (!blobToPlay) {
           const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(text)}`
@@ -350,7 +334,8 @@ export default function SpeakingStudio() {
         const aiText = await transcribeAudioWithAI(blob)
         if (aiText) transcript = aiText.trim()
       } catch(e) {
-        console.warn('Fallback transcription failed', e)
+          console.error('Fallback transcription failed', e)
+          throw e // STT hatasında uyarı yerine hatayı fırlat
       }
     }
     
@@ -431,7 +416,7 @@ export default function SpeakingStudio() {
     ${messages.map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n')}`
     
     try {
-      const evalData = await fetchAI(prompt, true)
+      const evalData = await fetchAI(prompt, { expectJson: true, role: 'system' })
       setFeedbackData(evalData)
     } catch (e) {
       console.error('Feedback extraction error:', e)

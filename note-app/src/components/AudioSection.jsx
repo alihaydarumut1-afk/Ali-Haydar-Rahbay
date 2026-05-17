@@ -3,55 +3,39 @@ import useAudioFiles from '../hooks/useAudioFiles.js'
 import useAudioStorage from './useAudioStorage.js'
 import useWords from '../hooks/useWords.js'
 
-const defaultKey = ''
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 async function fetchAI(prompt) {
-  const key = localStorage.getItem('geminiApiKey') || defaultKey
-  const isJson = prompt.includes('JSON') || prompt.includes('json')
-  const maxTokens = isJson ? 1500 : 100
-  if (key.startsWith('sk-')) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: prompt }], temperature: 0.3, max_tokens: maxTokens })
-    })
-    if (!response.ok) throw new Error('OpenAI API Hatası')
-    const data = await response.json()
-    return data.choices[0].message.content
-  } else {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: maxTokens } })
-    })
-    if (!response.ok) throw new Error('Gemini API Hatası')
-    const data = await response.json()
-    return data.candidates[0].content.parts[0].text
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson: false })
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
   }
+  return data.content;
 }
 
 async function transcribeAudioWithAI(blob) {
-  let key = localStorage.getItem('geminiApiKey') || defaultKey
-  if (key.startsWith('sk-')) {
-    key = defaultKey // Whisper maliyetinden kaçınmak için sesi daima Gemini ile çevir
+  const base64Audio = await new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result.split(',')[1])
+    reader.readAsDataURL(blob)
+  })
+  const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'Transcription Hatası');
   }
-    const base64Audio = await new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result.split(',')[1])
-      reader.readAsDataURL(blob)
-    })
-    const cleanMimeType = blob.type.split(';')[0] || 'audio/webm'
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: "Transcribe the following English audio accurately. Reply ONLY with the transcription." }, { inlineData: { mimeType: cleanMimeType, data: base64Audio } }] }],
-        generationConfig: { temperature: 0.1 }
-      })
-    })
-    if (!response.ok) throw new Error('Gemini API Hatası')
-    const data = await response.json()
-    return data.candidates[0].content.parts[0].text.trim()
+  return data.text;
 }
 
 // Yapay zekadan dönen kelime türünü uygulamanın kategorilerine uyduran yardımcı fonksiyon
@@ -235,7 +219,7 @@ ${text}`
       setAnalysisResult(parsed)
     } catch (e) {
       console.error(e)
-      alert('An error occurred during analysis. Please try again.')
+      throw e // Analiz esnasında sorun çıkarsa alert gösterme, işlemi durdur
     } finally {
       setIsAnalyzing(false)
     }

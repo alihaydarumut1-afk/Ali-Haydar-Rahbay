@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BookOpen, Layers, BrainCircuit, Library, Mic, Headphones, BookMarked, PenTool, Sparkles, MonitorPlay, ArrowRight, Target, Edit2, Award, AudioLines, Flame, Check, X } from 'lucide-react'
+import { BookOpen, Layers, BrainCircuit, Library, Mic, Headphones, BookMarked, PenTool, Sparkles, MonitorPlay, ArrowRight, Target, Edit2, Award, AudioLines, Flame, Check, X, ListTodo } from 'lucide-react'
 
 const MODULES = [
+  { path: '/tasks', title: 'Daily Tasks', description: 'Track your daily learning goals and smart tasks.', icon: ListTodo, color: 'text-teal-600', bg: 'bg-teal-50', tourClass: 'tour-tasks' },
   { path: '/words', title: 'Word List', description: 'Manage and categorize all your learned words.', icon: Library, color: 'text-blue-600', bg: 'bg-blue-50', tourClass: 'tour-wordlist' },
   { path: '/flashcard', title: 'Flashcards', description: 'Memorize words quickly by flipping cards.', icon: Layers, color: 'text-emerald-600', bg: 'bg-emerald-50', tourClass: 'tour-flashcards' },
   { path: '/quiz', title: 'Quiz Mode', description: 'Test yourself with multiple-choice questions.', icon: BrainCircuit, color: 'text-purple-600', bg: 'bg-purple-50', tourClass: 'tour-quiz' },

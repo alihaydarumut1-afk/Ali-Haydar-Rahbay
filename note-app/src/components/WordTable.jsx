@@ -119,7 +119,7 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
     // Öncelik: Henüz "Mastered" olmayan kelimeler
     let pool = words.filter(w => !w.isMastered)
     if (pool.length < 3) pool = words // Yeterli kelime yoksa tüm listeyi kullan
-    if (pool.length === 0) return alert("You must add words to start the exam!")
+    if (words.length < 4) return alert("Sınavı başlatabilmek için kelime deponuzda en az 4 kelime bulunmalıdır (Yanlış şıkları oluşturabilmek için). Lütfen önce birkaç kelime daha ekleyin!");
     
     const shuffled = [...pool].sort(() => Math.random() - 0.5)
     const selected = shuffled.slice(0, Math.min(5, Math.max(3, pool.length))) // 3 ile 5 arası kelime seç
@@ -129,20 +129,20 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
   return (
     <>
       <div className="grid gap-8 xl:grid-cols-[0.95fr_0.85fr]">
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70">
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/70 dark:bg-zinc-900 dark:border-zinc-800 dark:shadow-none">
           <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Vocabulary Book</p>
-              <h2 className="mt-3 text-3xl font-semibold text-slate-950">Added Words</h2>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500 dark:text-zinc-400">Vocabulary Book</p>
+              <h2 className="mt-3 text-3xl font-semibold text-slate-950 dark:text-zinc-50">Added Words</h2>
             </div>
-            <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">
+            <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
               Total: {words.length}
             </div>
             <div className="flex items-center gap-3 sm:ml-auto">
               <button
                 type="button"
                 onClick={() => setIsAnalysesModalOpen(true)}
-                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700"
               >
                 📊 My Analyses
               </button>
@@ -159,26 +159,26 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
           {/* Arama ve Sıralama */}
           <div className="mb-6 space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">Search Words</label>
+              <label className="mb-2 block text-sm font-semibold text-slate-700 dark:text-zinc-300">Search Words</label>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search English word or Turkish meaning..."
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-zinc-900 placeholder:text-zinc-400 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-indigo-500 dark:focus:ring-indigo-900"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-semibold text-slate-700">Sort by:</span>
+              <span className="text-sm font-semibold text-slate-700 dark:text-zinc-300">Sort by:</span>
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setSortBy(sortBy === 'a-z' ? 'z-a' : 'a-z')}
                   className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
                     sortBy === 'a-z' || sortBy === 'z-a'
-                      ? 'border-slate-950 bg-slate-950 text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100'
+                      ? 'border-slate-950 bg-slate-950 text-white dark:bg-zinc-100 dark:border-zinc-100 dark:text-zinc-900'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700'
                   }`}
                 >
                   Alphabetical {sortBy === 'a-z' ? 'A-Z' : sortBy === 'z-a' ? 'Z-A' : ''}
@@ -188,8 +188,8 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
                   onClick={() => setSortBy(sortBy === 'newest' ? 'oldest' : 'newest')}
                   className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
                     sortBy === 'newest' || sortBy === 'oldest'
-                      ? 'border-slate-950 bg-slate-950 text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100'
+                      ? 'border-slate-950 bg-slate-950 text-white dark:bg-zinc-100 dark:border-zinc-100 dark:text-zinc-900'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700'
                   }`}
                 >
                   Date {sortBy === 'newest' ? 'Newest' : sortBy === 'oldest' ? 'Oldest' : ''}
@@ -199,7 +199,7 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
           </div>
 
           {/* Filtre Butonları ve Ayarlar */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-5">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-5 dark:border-zinc-800">
             <div className="flex flex-wrap items-center gap-3">
               {FILTER_TYPES.map((type) => (
                 <button
@@ -208,8 +208,8 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
                   onClick={() => setFilterType(type)}
                   className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
                     filterType === type
-                      ? 'border-slate-950 bg-slate-950 text-white'
-                      : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100'
+                      ? 'border-slate-950 bg-slate-950 text-white dark:bg-zinc-100 dark:border-zinc-100 dark:text-zinc-900'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700'
                   }`}
                 >
                   {type}
@@ -221,9 +221,9 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
         {/* Horizontal List View - Gruplandırılmış Liste */}
         <div className="mb-8">
           {filteredAndSortedWords.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-10 text-center text-slate-500 shadow-sm shadow-slate-200/70">
-              <p className="text-lg font-medium">No words found matching the selected criteria.</p>
-              <p className="mt-3 text-sm text-slate-500">Fill the list by adding new words.</p>
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 p-10 text-center text-slate-500 shadow-sm shadow-slate-200/70 dark:bg-zinc-900/80 dark:border-zinc-700 dark:text-zinc-400 dark:shadow-none">
+              <p className="text-lg font-medium text-slate-700 dark:text-zinc-300">No words found matching the selected criteria.</p>
+              <p className="mt-3 text-sm">Fill the list by adding new words.</p>
             </div>
           ) : (
             FILTER_TYPES.slice(1).map((type) => {
@@ -235,7 +235,7 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
               return (
                 <div key={type} className="relative mb-8 last:mb-0">
                   {filterType === 'All' && (
-                    <div className="sticky top-0 z-10 mb-4 flex items-center justify-between rounded-2xl p-4 shadow-sm backdrop-blur-md border border-slate-200" style={{ backgroundColor: `var(--bg-${groupTypeKey}-header, #f1f5f9)`, color: `var(--text-${groupTypeKey}-header, #0f172a)` }}>
+                    <div className="sticky top-0 z-10 mb-4 flex items-center justify-between rounded-2xl p-4 shadow-sm backdrop-blur-md border border-slate-200 dark:border-zinc-700" style={{ backgroundColor: `var(--bg-${groupTypeKey}-header, #f1f5f9)`, color: `var(--text-${groupTypeKey}-header, #0f172a)` }}>
                       <div className="flex items-center gap-3">
                         <h3 className="text-xl font-bold" style={{ color: 'inherit' }}>{TYPE_LABELS[type]}</h3>
                         <span className="rounded-full bg-black/10 px-3 py-1 text-xs font-semibold" style={{ color: 'inherit' }}>
@@ -403,11 +403,11 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
       {/* Analizlerim Modalı */}
       {isAnalysesModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm sm:p-6" onClick={() => setIsAnalysesModalOpen(false)}>
-          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl bg-white shadow-2xl dark:bg-zinc-900 dark:border-zinc-800" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-zinc-800">
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Cross Exam Analyses</h2>
-                <p className="mt-1 text-sm text-slate-500">Your past test results and word success rates.</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-zinc-50">Cross Exam Analyses</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">Your past test results and word success rates.</p>
               </div>
               <button onClick={() => setIsAnalysesModalOpen(false)} className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200 hover:text-slate-900 transition">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -415,22 +415,22 @@ export default function WordTable({ words, onAddWord, onUpdateWord, onDeleteWord
             </div>
             <div className="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-4">
               {pokAnalyses.length === 0 ? (
-                <div className="text-center py-10 text-slate-500">You don't have any saved exam analyses yet.</div>
+                <div className="text-center py-10 text-slate-500 dark:text-zinc-400">You don't have any saved exam analyses yet.</div>
               ) : (
                 pokAnalyses.map(analysis => {
                   const avgScore = Math.round(analysis.testedWords.reduce((acc, w) => acc + w.score, 0) / analysis.testedWords.length) || 0;
                   return (
-                    <div key={analysis.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <div key={analysis.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:bg-zinc-800 dark:border-zinc-700">
                       <div className="flex justify-between items-center mb-3">
-                        <span className="font-semibold text-slate-700">{new Date(analysis.date).toLocaleString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="font-semibold text-slate-700 dark:text-zinc-300">{new Date(analysis.date).toLocaleString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                         <span className={`font-bold px-3 py-1 rounded-full text-xs ${avgScore >= 80 ? 'bg-emerald-100 text-emerald-700' : avgScore >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>Average: {avgScore}%</span>
                       </div>
-                      <div className="space-y-2 mt-4 border-t border-slate-200 pt-4">
+                      <div className="space-y-2 mt-4 border-t border-slate-200 pt-4 dark:border-zinc-700">
                         {analysis.testedWords.map(w => (
-                          <div key={w.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
+                          <div key={w.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 dark:bg-zinc-900 dark:border-zinc-800">
                             <div>
-                              <span className="font-bold text-slate-900">{w.english}</span>
-                              <span className="text-slate-500 ml-2 text-sm">{w.turkish}</span>
+                              <span className="font-bold text-slate-900 dark:text-zinc-100">{w.english}</span>
+                              <span className="text-slate-500 ml-2 text-sm dark:text-zinc-400">{w.turkish}</span>
                             </div>
                             <span className={`font-bold ${w.score >= 90 ? 'text-emerald-500' : w.score >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>{w.score}%</span>
                           </div>

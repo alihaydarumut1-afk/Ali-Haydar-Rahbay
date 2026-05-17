@@ -3,36 +3,20 @@ import shuffleArray from '../utils/shuffle.js'
 import SynonymQuiz from './SynonymQuiz.jsx'
 import { ChevronDown, Loader2 } from 'lucide-react'
 
-const defaultKey = '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'
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 async function fetchAI(prompt) {
-  const key = localStorage.getItem('geminiApiKey') || defaultKey
-  if (key.startsWith('sk-')) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: prompt }],
-        temperature: 0.3,
-      })
-    })
-    if (!response.ok) throw new Error('OpenAI API Error')
-    const data = await response.json()
-    return data.choices[0].message.content
-  } else {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 },
-      }),
-    })
-    if (!response.ok) throw new Error('Gemini API Error')
-    const data = await response.json()
-    return data.candidates[0].content.parts[0].text
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson: false })
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
   }
+  return data.content;
 }
 
 function buildUnifiedDeck(targetWords, allWords) {
@@ -151,23 +135,14 @@ export default function QuizGame({ words }) {
         
         setAudioStatus(prev => ({ ...prev, [qId]: 'loading' }))
         try {
-          const apiKey = localStorage.getItem('geminiApiKey')
           let blob = null
           
-          if (apiKey && apiKey.startsWith('sk-')) {
-            const res = await fetch('https://api.openai.com/v1/audio/speech', {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ model: 'tts-1', voice: 'alloy', input: text })
-            })
-            if (res.ok) { blob = await res.blob(); }
-          }
-          
-          if (!blob) {
-            const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(text)}`
-            const res = await fetch(googleUrl)
-            if (res.ok) { blob = await res.blob(); }
-          }
+          const res = await fetch(`${getBaseUrl()}/api/ai/speech`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, voice: 'alloy' })
+          });
+          if (res.ok) { blob = await res.blob(); }
 
           if (blob) {
             const url = URL.createObjectURL(blob)
@@ -200,22 +175,14 @@ export default function QuizGame({ words }) {
     try {
       let url = preloadedAudio.current[qId]
       if (!url) {
-        const apiKey = localStorage.getItem('geminiApiKey') || defaultKey
         let blob = null
         
-        if (apiKey.startsWith('sk-')) {
-          const res = await fetch('https://api.openai.com/v1/audio/speech', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'tts-1', voice: 'alloy', input: text })
-          })
-          if (res.ok) { blob = await res.blob(); }
-        }
-        if (!blob) {
-          const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(text)}`
-          const res = await fetch(googleUrl)
-          if (res.ok) { blob = await res.blob(); }
-        }
+        const res = await fetch(`${getBaseUrl()}/api/ai/speech`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'alloy' })
+        });
+        if (res.ok) { blob = await res.blob(); }
 
         if (blob && !url) {
           url = URL.createObjectURL(blob)

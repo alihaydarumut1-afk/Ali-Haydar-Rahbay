@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { Mic, Loader2, Trash2 } from 'lucide-react'
 
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
 export default function VoiceRecorder({ onTranscription }) {
   const [isRecording, setIsRecording] = useState(false)
   const [transcript, setTranscript] = useState('')
@@ -16,9 +18,6 @@ export default function VoiceRecorder({ onTranscription }) {
   const mediaRecorderRef = useRef(null)
   const audioChunksRef = useRef([])
   const timerRef = useRef(null)
-
-  // Arka planda çalışan API Anahtarı
-  const keyToUse = localStorage.getItem('openAiApiKey') || localStorage.getItem('geminiApiKey') || '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'
 
   useEffect(() => {
     return () => {
@@ -48,13 +47,21 @@ export default function VoiceRecorder({ onTranscription }) {
       }
 
       mediaRecorder.onstop = async () => {
-        if (audioChunksRef.current.length === 0) return
+        if (audioChunksRef.current.length === 0) {
+          setIsTranscribing(false)
+          return
+        }
         const blob = new Blob([...audioChunksRef.current], { type: mimeType })
         setAudioBlob(blob)
         setAudioUrl(URL.createObjectURL(blob))
         stream.getTracks().forEach((track) => track.stop())
         
-        await processRecording(blob)
+        try {
+          await processRecording(blob)
+        } catch (err) {
+          console.error('Recording processing error:', err)
+          throw err // Hatayı yutmayıp fırlatıyoruz (konsolda Unhandled Rejection olarak patlasın)
+        }
       }
 
       mediaRecorder.start()
@@ -65,7 +72,7 @@ export default function VoiceRecorder({ onTranscription }) {
       }, 1000)
       
     } catch (caughtError) {
-      alert('Microphone access denied or an error occurred.')
+      console.error('Microphone access error:', caughtError)
       setIsRecording(false)
     }
   }
@@ -81,46 +88,50 @@ export default function VoiceRecorder({ onTranscription }) {
 
   const processRecording = async (blob) => {
     if (!blob || blob.size === 0) {
-      alert("Geçerli bir ses dosyası alınamadı. Lütfen tekrar deneyin.")
+      setIsTranscribing(false)
+      console.error('Invalid audio blob, no recording data available.')
       return
     }
 
     setIsTranscribing(true)
     let transcriptText = ''
 
-    // 1. AŞAMA: OPENAI WHISPER STT (Sesten Metne)
+    // 1. AŞAMA: OPENAI WHISPER VEYA GEMINI STT (Sesten Metne)
     try {
-      const formData = new FormData()
-      const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('wav') ? 'wav' : 'webm'
-      formData.append('file', blob, `recording.${ext}`)
-      formData.append('model', 'whisper-1')
-      formData.append('language', 'en')
-
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      const base64Audio = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result.split(',')[1])
+        reader.readAsDataURL(blob)
+      })
+      const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${keyToUse}` },
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
       })
 
-      if (!response.ok) throw new Error('OpenAI API Sunucusu yanıt vermedi.')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 429) alert(errorData.error);
+        console.error('API Hatası:', errorData)
+        throw new Error(errorData.error?.message || 'API Sunucusu yanıt vermedi.')
+      }
 
       const data = await response.json()
       transcriptText = data.text?.trim() || ''
-      
-      // Whisper halüsinasyon (sessizlik) filtresi
-      if (['you', 'you.', 'thank you.', 'thank you', 'okay', 'okay.'].includes(transcriptText.toLowerCase())) {
+
+      if (transcriptText && ['you', 'you.', 'thank you.', 'thank you', 'okay', 'okay.'].includes(transcriptText.toLowerCase())) {
         transcriptText = ''
       }
     } catch (error) {
-      console.error(error)
-      alert(`Transcription Error: ${error.message}`)
+      console.error('Transcription error:', error)
+      setIsTranscribing(false)
+      return
     }
-    
+
     setIsTranscribing(false)
 
     if (!transcriptText) {
-      alert("Sessizlik algılandı veya metin anlaşılamadı. Lütfen tekrar deneyin.")
-      return
+      throw new Error('Sessizlik algılandı: API boş metin döndürdü. Lütfen Google Chrome veya Windows mikrofon ayarlarınızı kontrol edin (Yanlış mikrofon seçili olabilir veya ses kaydedilmiyor).')
     }
 
     setTranscript(transcriptText)
@@ -145,23 +156,17 @@ export default function VoiceRecorder({ onTranscription }) {
       
       Transcript: '${transcriptText}'`
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${keyToUse}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          response_format: { type: 'json_object' },
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.3
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, expectJson: true })
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        const content = data.choices?.[0]?.message?.content || ''
-        const jsonMatch = content.match(/\{[\s\S]*\}/)
-        if (jsonMatch) setAiFeedback(JSON.parse(jsonMatch[0]))
+      const data = await response.json()
+      if (!response.ok) {
+        if (response.status === 429) alert(data.error);
+        throw new Error(data.error || 'AI Hatası');
       }
+      setAiFeedback(JSON.parse(data.content))
     } catch (err) {
       console.error('Eval error', err)
     } finally {

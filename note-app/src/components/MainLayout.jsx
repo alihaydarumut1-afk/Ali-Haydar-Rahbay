@@ -64,6 +64,7 @@ export default function MainLayout() {
 
   const tourSteps = [
     { target: '.tour-dashboard', content: 'Welcome to your English Learning Hub! Here you can track your daily study goals and your learning streaks.', placement: 'bottom' },
+    { target: '.tour-tasks', content: 'Daily Tasks: Set smart goals, track your progress automatically, and manually add custom to-dos!', placement: 'bottom' },
     { target: '.tour-wordlist', content: 'Word List: Manage your vocabulary here. You can double-click on the words to reveal their Turkish meanings and details!', placement: 'bottom' },
     { target: '.tour-flashcards', content: 'Flashcards: Memorize words quickly using our Spaced Repetition system.', placement: 'bottom' },
     { target: '.tour-quiz', content: 'Quiz Mode: Test yourself with multiple-choice questions or gap-fill exercises.', placement: 'bottom' },

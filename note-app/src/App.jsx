@@ -20,6 +20,7 @@ import useReadings from './hooks/useReadings.js'
 import TextSelectionTranslator from './components/TextSelectionTranslator.jsx'
 import RandomWordWidget from './components/RandomWordWidget.jsx'
 import DashboardGrid from './components/DashboardGrid.jsx'
+import TodoList from './components/TodoList.jsx'
 
 const APPEARANCE_STORAGE_KEY = 'appAppearanceSettings'
 
@@ -204,7 +205,7 @@ export default function App() {
             <div className="relative">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="tour-settings flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-200"
+                className="tour-settings flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:focus:ring-zinc-600 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8] eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]"
                 title="Gelişmiş Görünüm Ayarları"
               >
                 <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -215,8 +216,8 @@ export default function App() {
               {isMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl border border-slate-100 bg-white py-2 shadow-xl ring-1 ring-black/5 z-50">
-                    <button onClick={toggleBlur} className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                  <div className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl border border-slate-100 bg-white py-2 shadow-xl ring-1 ring-black/5 z-50 dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
+                    <button onClick={toggleBlur} className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-700 eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]">
                       <div className="flex items-center gap-3">
                         <span className="text-lg">👁️</span>
                         Buğulu Çeviri
@@ -225,9 +226,9 @@ export default function App() {
                         <div className={`absolute h-4 w-4 rounded-full bg-white transition-transform ${isBlurEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
                       </div>
                     </button>
-                    <div className="my-1 border-t border-slate-100"></div>
-                    <button onClick={() => { setIsThemeModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><span className="text-lg">🎨</span>Tema Ayarları</button>
-                    <button onClick={() => { setIsAppearanceModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"><span className="text-lg">✨</span>Gelişmiş Görünüm</button>
+                    <div className="my-1 border-t border-slate-100 dark:border-zinc-700 eye-care:border-[#EAE0C8]"></div>
+                    <button onClick={() => { setIsThemeModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-700 eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]"><span className="text-lg">🎨</span>Tema Ayarları</button>
+                    <button onClick={() => { setIsAppearanceModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-700 eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]"><span className="text-lg">✨</span>Gelişmiş Görünüm</button>
                   </div>
                 </>
               )}
@@ -240,7 +241,7 @@ export default function App() {
 
   return (
       <HashRouter>
-        <div className="min-h-screen transition-colors duration-300" style={{ ...styleVars, fontSize: 'var(--base-size)', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', '--card-bg': activeTheme.card, '--accent': activeTheme.accent }}>
+        <div className="min-h-screen overflow-x-hidden transition-colors duration-300" style={{ ...styleVars, fontSize: 'var(--base-size)', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', '--card-bg': activeTheme.card, '--accent': activeTheme.accent }}>
 
         {/* Parlaklık (Brightness) Katmanı: CSS filter özelliği fare okunu (position:fixed) bozduğu için katman olarak eklendi */}
         {activeTheme.brightness && activeTheme.brightness !== 1 && (
@@ -271,7 +272,7 @@ export default function App() {
         /* Pürüzsüz Sayfa Geçiş Animasyonu (Premium Feel) */
         @keyframes pageFadeIn {
           from { opacity: 0; transform: translateY(12px) scale(0.995); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
+          to { opacity: 1; transform: none; }
         }
         .page-transition { animation: pageFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
       `}} />
@@ -279,6 +280,7 @@ export default function App() {
         <Routes>
           <Route element={<MainLayout />}>
             <Route path="/" element={<>{renderHeaderAndThemeMenu('Dashboard', true)}<DashboardGrid /></>} />
+            <Route path="/tasks" element={<>{renderHeaderAndThemeMenu('Daily Tasks')}<TodoList /></>} />
             <Route path="/words" element={<>{renderHeaderAndThemeMenu('Kelime Listesi')}<WordTable words={words} onAddWord={addWord} onUpdateWord={updateWord} onDeleteWord={removeWord} /></>} />
             <Route path="/flashcard" element={<>{renderHeaderAndThemeMenu('Flashcard Modu')}<FlashcardGame words={words} onUpdateWord={updateWord} /></>} />
             <Route path="/quiz" element={<>{renderHeaderAndThemeMenu('Quiz Modu')}<QuizGame words={words} /></>} />

@@ -2,16 +2,14 @@ import { useMemo, useState } from 'react'
 import useSavedCreations from '../hooks/useSavedCreations.js'
 import SavedCreationsDrawer from './SavedCreationsDrawer.jsx'
 
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
 export default function CreativeLab({ words = [], onPractice }) {
   const [selectedIds, setSelectedIds] = useState([])
   const [format, setFormat] = useState('dialogue')
   const [selectedLevel, setSelectedLevel] = useState('B1-B2')
   const [output, setOutput] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [apiWarning, setApiWarning] = useState(null)
-  const defaultKey = ''
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('geminiApiKey') || defaultKey)
-  const [isEditingKey, setIsEditingKey] = useState(() => !localStorage.getItem('geminiApiKey') && !defaultKey)
   const { creations, addCreation, removeCreation } = useSavedCreations()
   const safeCreations = Array.isArray(creations) ? creations : []
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -20,11 +18,6 @@ export default function CreativeLab({ words = [], onPractice }) {
   const [isPracticeOpen, setIsPracticeOpen] = useState(false)
   const [practiceIndex, setPracticeIndex] = useState(0)
   const [isFlipped, setIsFlipped] = useState(false)
-
-  const saveApiKey = () => {
-    localStorage.setItem('geminiApiKey', apiKey)
-    setIsEditingKey(false)
-  }
 
   const selectedWords = useMemo(
     () => words.filter((word) => selectedIds.includes(word.id)),
@@ -100,48 +93,18 @@ export default function CreativeLab({ words = [], onPractice }) {
     setIsGenerating(true)
 
     try {
-      const key = localStorage.getItem('geminiApiKey') || defaultKey
-      if (!key) {
-        const wordList = selectedWords.map(w => w.english).join(', ')
-        let fallbackText = ''
-        if (format === 'dialogue') {
-           fallbackText = `A: Let's discuss this topic today: ${wordList}.\nB: Great idea! These words are really important.\nA: Yes, they make more sense when used together.\nB: I totally agree, shall we practice?`
-        } else {
-           fallbackText = `[Advanced AI Simulator - ${format} Format]\nSample text generated targeting these words: ${wordList}. Using target words in sentences increases retention.`
-        }
-        setOutput(fallbackText + "\n\n⚠️ Note: To generate real AI content, please add your API key above.")
-        setIsGenerating(false)
-        return
-      }
-
-      let response;
-      if (key.startsWith('sk-')) {
-        response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'system', content: aiPrompt }],
-            temperature: 0.8,
-          })
-        })
-      } else {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`
-        response = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: aiPrompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 1500 } }),
-        })
-      }
-
+      const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt, expectJson: false })
+      });
+      const data = await response.json();
       if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error?.message || 'AI did not respond.')
+        if (response.status === 429) alert(data.error);
+        throw new Error(data.error || 'AI Hatası');
       }
 
-      const data = await response.json()
-      const content = key.startsWith('sk-') ? (data.choices?.[0]?.message?.content || '') : (data.candidates?.[0]?.content?.parts?.[0]?.text || '')
-      setOutput(content)
+      setOutput(data.content)
     } catch (error) {
       console.error('Creative generation error:', error)
       setOutput(`Error: ${error.message}. Please try again.`)
@@ -204,47 +167,6 @@ export default function CreativeLab({ words = [], onPractice }) {
 
   return (
     <div className="space-y-6 font-sans text-zinc-900 dark:text-zinc-100 eye-care:text-[#5C4B37]">
-      {apiWarning && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
-              <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <p className="text-sm font-medium text-amber-800">{apiWarning}</p>
-          </div>
-        </div>
-      )}
-      
-      {/* Minimal API Key Indicator */}
-      <div className="flex justify-end mb-2">
-        <div className="flex items-center gap-3 opacity-30 transition-opacity duration-300 hover:opacity-100">
-          {isEditingKey ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="API Key..."
-                className="w-32 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 eye-care:bg-transparent eye-care:border-[#EAE0C8] eye-care:placeholder:text-amber-700/60"
-              />
-              <button
-                onClick={saveApiKey}
-                className="rounded-lg bg-zinc-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-zinc-800"
-              >
-                Save
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-              <span className="text-xs font-medium text-zinc-500">AI Active</span>
-              <button onClick={() => setIsEditingKey(true)} className="ml-1 text-xs font-medium text-indigo-600 hover:underline">Change</button>
-            </div>
-          )}
-        </div>
-      </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-12">
         {/* Sol Taraf: Word Arsenal */}

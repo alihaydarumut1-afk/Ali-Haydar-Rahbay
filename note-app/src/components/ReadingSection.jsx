@@ -7,6 +7,8 @@ import useSavedCreations from '../hooks/useSavedCreations.js'
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
 const buildPrompt = (text, level) => `You are an IELTS/TOEFL reading comprehension test creator. 
 
 Given the following text and proficiency level (${level}), create:
@@ -68,15 +70,6 @@ export default function ReadingSection({ updateReading }) {
   const [editedText, setEditedText] = useState('')
   const [editedLevel, setEditedLevel] = useState('B1')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [apiWarning, setApiWarning] = useState(null)
-  const defaultKey = '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'
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('geminiApiKey') || defaultKey)
-  const [isEditingKey, setIsEditingKey] = useState(() => !localStorage.getItem('geminiApiKey') && !defaultKey)
-
-  const saveApiKey = () => {
-    localStorage.setItem('geminiApiKey', apiKey)
-    setIsEditingKey(false)
-  }
 
   const selectedReading = readings.find(r => r.id === selectedId) || null
 
@@ -100,44 +93,18 @@ export default function ReadingSection({ updateReading }) {
     }
 
     try {
-      const key = localStorage.getItem('geminiApiKey') || defaultKey
-      if (!key) {
-        addFallback("API key is missing. Please add it from settings.")
-        return
-      }
-
-      const prompt = buildPrompt(text, level)
-      
-      let response;
-      if (key.startsWith('sk-')) {
-        response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'system', content: prompt }],
-            temperature: 0.7,
-          })
-        })
-      } else {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`
-        response = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, maxOutputTokens: 1500 } }),
-        })
-      }
-
+      const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: buildPrompt(text, level), expectJson: true })
+      });
+      const data = await response.json();
       if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error?.message || 'AI failed to respond.')
+        if (response.status === 429) alert(data.error);
+        throw new Error(data.error || 'AI Hatası');
       }
-
-      const data = await response.json()
-      const content = key.startsWith('sk-') ? (data.choices?.[0]?.message?.content || '') : (data.candidates?.[0]?.content?.parts?.[0]?.text || '')
-      const cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim()
       
-      const parsed = JSON.parse(cleaned)
+      const parsed = JSON.parse(data.content.replace(/```json/g, '').replace(/```/g, '').trim())
 
       addReading({
         text,
@@ -190,19 +157,6 @@ export default function ReadingSection({ updateReading }) {
 
   return (
     <div className="space-y-6 font-sans text-zinc-900">
-      {apiWarning && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
-              <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-            </div>
-            <p className="text-sm font-medium text-amber-800">{apiWarning}</p>
-          </div>
-        </div>
-      )}
-
       
       <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

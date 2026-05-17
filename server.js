@@ -1,49 +1,23 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import { YoutubeTranscript } from 'youtube-transcript';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Eğer projede import hatası alırsanız, bu import satırlarını şu şekilde değiştirin:
-// const express = require('express');
-// const cors = require('cors');
-// const { YoutubeTranscript } = require('youtube-transcript');
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { YoutubeTranscript } = require('youtube-transcript');
+const path = require('path');
 
 const app = express();
-app.set('trust proxy', 1);
+
+// Frontend'in bu sunucuya erişebilmesi için CORS izni veriyoruz
 app.use(cors());
+
 app.use(express.json({ limit: '50mb' }));
-
-const userQuotas = new Map();
-const DAILY_AI_LIMIT = 30; // Günlük yapay zeka işlem kotası
-
-const checkQuota = (req, res, next) => {
-  const ip = req.ip || req.connection.remoteAddress;
-  // Localhost (Kendi bilgisayarınız) ise limiti es geç (Sınırsız kullanım)
-  if (ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
-    return next();
-  }
-  const today = new Date().toISOString().split('T')[0];
-  const key = `${ip}_${today}`;
-  const usage = userQuotas.get(key) || 0;
-  if (usage >= DAILY_AI_LIMIT) {
-    return res.status(429).json({ error: `Günlük yapay zeka limitinize (${DAILY_AI_LIMIT} işlem) ulaştınız. Lütfen yarın tekrar deneyin.` });
-  }
-  userQuotas.set(key, usage + 1);
-  next();
-};
 
 const getAIKey = () => {
   const key = process.env.AI_KEY;
-  if (!key) throw new Error('Sunucuda AI_KEY bulunamadı! Lütfen Render panelinden veya .env dosyasından ekleyin.');
+  if (!key) throw new Error('Sunucuda AI_KEY bulunamadı! Lütfen .env dosyasından ekleyin.');
   return key;
 };
 
-app.post('/api/ai/chat', checkQuota, async (req, res) => {
+app.post('/api/ai/chat', async (req, res) => {
   try {
     const { prompt, expectJson, maxTokens } = req.body;
     const key = getAIKey();
@@ -62,7 +36,7 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
         })
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'OpenAI API Hatası');
+      if (!response.ok) throw new Error(data.error?.message || 'OpenAI Hatası');
       content = data.choices[0].message.content;
     } else {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`;
@@ -79,16 +53,16 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
         })
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'Gemini API Hatası');
+      if (!response.ok) throw new Error(data.error?.message || 'Gemini Hatası');
       content = data.candidates[0].content.parts[0].text;
     }
     res.json({ content });
   } catch (err) {
-    res.status(500).json({ error: 'Yapay zeka yanıt veremedi: ' + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
+app.post('/api/ai/transcribe', async (req, res) => {
   try {
     const { audioBase64, mimeType } = req.body;
     const key = getAIKey();
@@ -132,11 +106,11 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
     }
     res.json({ text });
   } catch (err) {
-    res.status(500).json({ error: 'Ses metne çevrilemedi: ' + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/ai/speech', checkQuota, async (req, res) => {
+app.post('/api/ai/speech', async (req, res) => {
   try {
     const { text, voice } = req.body;
     const key = getAIKey();
@@ -145,7 +119,7 @@ app.post('/api/ai/speech', checkQuota, async (req, res) => {
       const response = await fetch('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-        body: JSON.stringify({ model: 'tts-1', voice: voice || 'alloy', input: text })
+        body: JSON.stringify({ model: 'tts-1', voice: 'alloy', input: text })
       });
       if (!response.ok) throw new Error('OpenAI Speech API Hatası');
       const arrayBuffer = await response.arrayBuffer();
@@ -160,43 +134,54 @@ app.post('/api/ai/speech', checkQuota, async (req, res) => {
       res.send(Buffer.from(arrayBuffer));
     }
   } catch (err) {
-    res.status(500).json({ error: 'Ses üretilemedi: ' + err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// React arayüzünü (Vite derlemesini) sunuyoruz
-app.use(express.static(path.join(__dirname, 'dist')));
+// React arayüzünü localhost üzerinden sunuyoruz (file:// hatasını önlemek için)
+app.use(express.static(path.join(__dirname, 'note-app', 'dist')));
 
 app.get('/api/transcript', async (req, res) => {
-  const { videoId } = req.query;
-  if (!videoId) {
-    return res.status(400).json({ error: 'videoId is required' });
-  }
-
   try {
+    const videoId = req.query.videoId;
+    if (!videoId) return res.status(400).json({ error: 'Video ID gereklidir' });
+    
+    // YoutubeTranscript kütüphanesi ile videonun altyazılarını çekiyoruz
     const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    const formatted = transcript.map((item, index) => ({
-      id: index,
-      start: item.offset / 1000,
-      end: (item.offset + item.duration) / 1000,
-      text: item.text
-    }));
-    res.json(formatted);
+    res.json(transcript);
   } catch (error) {
-    console.error('Transcript error:', error);
-    res.status(500).json({ error: 'Transkript alınamadı. Videonun altyazısı kapalı olabilir.' });
+    console.error('Transcript API Hatası:', error.message);
+    res.status(500).json({ error: 'Altyazı alınamadı veya engellendi. Geçerli bir video linki girdiğinizden emin olun.' });
   }
 });
 
-// React Router sayfaları için yönlendirme (sayfa yenilendiğinde çökmeyi önler)
+// React Router gibi sayfa içi yönlendirmelerde hata vermemesi için
 app.get(/(.*)/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'note-app', 'dist', 'index.html'));
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`===================================================`);
-  console.log(`✅ Arka plan sunucusu çalışıyor: http://localhost:${PORT}`);
-  console.log(`📺 YouTube transkriptleri başarıyla çekilebilir.`);
-  console.log(`===================================================`);
-});
+function startBackendServer() {
+  return new Promise((resolve) => {
+    const startServer = (port) => {
+      const server = app.listen(port, () => {
+        const actualPort = server.address().port;
+        console.log(`✅ Arka plan sunucusu ${actualPort} portunda çalışıyor!`);
+        resolve(actualPort);
+      }).on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          startServer(0); // Port doluysa rastgele boş bir port bul ve onunla başla
+        } else {
+          console.error('Sunucu başlatma hatası:', err);
+        }
+      });
+    };
+    startServer(3000);
+  });
+}
+
+module.exports = { startBackendServer };
+
+// Dosya terminalden doğrudan "node server.js" komutuyla çalıştırılırsa sunucuyu otomatik başlat
+if (require.main === module) {
+  startBackendServer();
+}

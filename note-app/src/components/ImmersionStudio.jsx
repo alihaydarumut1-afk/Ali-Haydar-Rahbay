@@ -14,34 +14,22 @@ const getYouTubeId = (url) => {
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 };
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 async function fetchAI(prompt) {
-  // API anahtarını anlık olarak alıyoruz ki sayfayı yenilemeye gerek kalmasın
-  const currentApiKey = localStorage.getItem('geminiApiKey') 
-    || (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_OPENAI_API_KEY) 
-    || '';
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
     method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json', 
-      'Authorization': `Bearer ${currentApiKey.trim()}` 
-    },
-    body: JSON.stringify({ 
-      model: 'gpt-4o', 
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3
-    })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson: false })
   });
+  const data = await response.json();
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error("OpenAI API Hatası:", errorData);
-    throw new Error(errorData.error?.message || 'OpenAI API hatası');
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI hatası');
   }
 
-  const data = await response.json();
-  return data.choices[0].message.content;
+  return data.content;
 }
 
 function parseAIJson(content) {
@@ -153,47 +141,12 @@ export default function ImmersionStudio() {
     const videoId = getYouTubeId(videoUrl)
     if (!videoId) throw new Error('Geçersiz YouTube linki')
     
-    // 1. İstemci Taraflı (Client-Side) Çekme Denemesi (Sunucusuz Yedek)
+    // En güvenilir yöntem olan Arka Plan Sunucusu (Local Server - server.js) üzerinden çekim
     try {
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.youtube.com/watch?v=' + videoId)}`;
-      const response = await fetch(proxyUrl);
-      const data = await response.json();
-      
-      const split1 = (data.contents || '').split('"captionTracks":');
-      if (split1.length > 1) {
-        const split2 = split1[1].split('],"');
-        if (split2.length > 0) {
-          const tracks = JSON.parse(split2[0] + ']');
-          const englishTrack = tracks.find(t => t.languageCode.includes('en')) || tracks[0];
-          
-          if (englishTrack) {
-            const transcriptResponse = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(englishTrack.baseUrl)}`);
-            const transcriptData = await transcriptResponse.json();
-            
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(transcriptData.contents, 'text/xml');
-            const textNodes = xmlDoc.getElementsByTagName('text');
-            
-            const result = [];
-            for (let i = 0; i < textNodes.length; i++) {
-              const node = textNodes[i];
-              const start = parseFloat(node.getAttribute('start'));
-              const dur = parseFloat(node.getAttribute('dur'));
-              const text = node.textContent.replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-              result.push({ id: i, start, end: start + (dur || 2), text });
-            }
-            if (result.length > 0) return result;
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("İstemci taraflı çekme başarısız oldu, yerel sunucu deneniyor...", err);
-    }
-
-    // 2. Arka Plan Sunucusu (Local Server) Denemesi
-    try {
+      // Dinamik port desteği: Uygulama hangi porttaysa o portu kullanır (Dev modunda 3000).
+      const baseUrl = (window.location.port === '5173' || window.location.origin.includes('file://')) ? 'http://localhost:3000' : window.location.origin;
       const response = await fetch(
-        `http://localhost:3000/api/transcript?videoId=${videoId}`
+        `${baseUrl}/api/transcript?videoId=${videoId}`
       )
       
       if (!response.ok) {
@@ -377,6 +330,8 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
     }
   }
 
+  const playerOrigin = (typeof window !== 'undefined' && window.location.origin !== 'null' && !window.location.origin.includes('file://')) ? window.location.origin : 'https://www.youtube.com';
+
   return (
     <div className="space-y-6">
       {/* URL Giriş Alanı */}
@@ -407,7 +362,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                 alert('Lütfen önce geçerli bir URL girin');
               }
             }}
-            className="whitespace-nowrap rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            className="whitespace-nowrap rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-800/50 eye-care:bg-indigo-50/50"
           >
             📺 Mini Pencerede Aç
           </button>
@@ -425,10 +380,10 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
               getYouTubeId(activeUrl) ? (
                 <iframe
                   ref={iframeRef}
-                  src={`https://www.youtube.com/embed/${getYouTubeId(activeUrl)}?autoplay=1&enablejsapi=1`}
+                  src={`https://www.youtube.com/embed/${getYouTubeId(activeUrl)}?autoplay=1&enablejsapi=1&origin=${playerOrigin}&widgetid=1`}
                   className="absolute top-0 left-0 w-full h-full bg-black"
                   frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
                   allowFullScreen
                 ></iframe>
@@ -452,8 +407,8 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
           
           {/* Tabs Header */}
           <div className="flex border-b border-zinc-200 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-900/50 eye-care:border-[#EAE0C8] eye-care:bg-[#FDF6E3]">
-            <button onClick={() => setRightTab('transcript')} className={`flex-1 py-4 text-sm font-bold transition-colors ${rightTab === 'transcript' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>Transkript</button>
-            <button onClick={() => setRightTab('quiz')} className={`flex-1 py-4 text-sm font-bold transition-colors ${rightTab === 'quiz' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'}`}>AI Quiz & Kelimeler</button>
+            <button onClick={() => setRightTab('transcript')} className={`flex-1 py-4 text-sm font-bold transition-colors ${rightTab === 'transcript' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white dark:bg-zinc-800 dark:text-indigo-400 eye-care:bg-[#F4EAD5]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 eye-care:text-amber-800/70 eye-care:hover:text-amber-950 eye-care:hover:bg-[#EAE0C8]'}`}>Transkript</button>
+            <button onClick={() => setRightTab('quiz')} className={`flex-1 py-4 text-sm font-bold transition-colors ${rightTab === 'quiz' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white dark:bg-zinc-800 dark:text-indigo-400 eye-care:bg-[#F4EAD5]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 eye-care:text-amber-800/70 eye-care:hover:text-amber-950 eye-care:hover:bg-[#EAE0C8]'}`}>AI Quiz & Kelimeler</button>
           </div>
           
           {/* Tab Contents */}
@@ -463,7 +418,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
             {rightTab === 'transcript' && (
               <div className="space-y-4 pb-32">
                 <div className="flex items-center justify-between mb-4">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Etkileşimli Metin Motoru</p>
+                  <p className="text-xs font-semibold text-slate-400 dark:text-zinc-500 eye-care:text-amber-800/70 uppercase tracking-widest">Etkileşimli Metin Motoru</p>
                 </div>
 
                 {isTranscriptLoading ? (
@@ -472,10 +427,10 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                       <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <p className="font-semibold text-slate-600">YouTube transkripti çekiliyor...</p>
+                    <p className="font-semibold text-slate-600 dark:text-zinc-300 eye-care:text-[#3B2F2F]">YouTube transkripti çekiliyor...</p>
                   </div>
                 ) : transcriptData.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500">
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500 dark:bg-zinc-900/50 dark:border-zinc-700 dark:text-zinc-400 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8] eye-care:text-amber-800/70">
                     Video transkripti burada görünecek.
                   </div>
                 ) : transcriptData.map((item, idx) => {
@@ -483,7 +438,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                   return (
                     <div 
                       key={item.id} 
-                      className={`group flex gap-4 rounded-2xl p-3 transition border ${isActive ? 'border-yellow-300 bg-yellow-100 shadow-sm' : 'border-transparent hover:bg-slate-50'}`}
+                      className={`group flex gap-4 rounded-2xl p-3 transition border ${isActive ? 'border-yellow-300 bg-yellow-100 shadow-sm' : 'border-transparent hover:bg-slate-50 dark:hover:bg-zinc-700/30 eye-care:hover:bg-[#FDF6E3]'}`}
                     >
                       <span 
                         onClick={() => seekTo(item.start)} 
@@ -493,12 +448,12 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                         {Math.floor(item.start / 60)}:{String(Math.floor(item.start % 60)).padStart(2, '0')}
                       </span>
                       <div className="flex flex-col items-start gap-1">
-                        <p className={`text-base leading-relaxed cursor-pointer ${isActive ? 'text-slate-900 font-bold' : 'text-slate-700'}`}>
+                        <p className={`text-base leading-relaxed cursor-pointer ${isActive ? 'text-slate-900 font-bold dark:text-white eye-care:text-amber-950' : 'text-slate-700 dark:text-zinc-300 eye-care:text-[#3B2F2F]'}`}>
                           {item.text.split(' ').map((word, wIdx) => (
                             <span 
                               key={wIdx} 
                               onClick={(e) => handleWordAnalysis(e, word, item.text)}
-                              className={`transition-colors rounded px-0.5 ${isActive ? 'hover:bg-yellow-300' : 'hover:bg-yellow-200 hover:text-slate-900'}`}
+                              className={`transition-colors rounded px-0.5 ${isActive ? 'hover:bg-yellow-300' : 'hover:bg-yellow-200 hover:text-slate-900 dark:hover:bg-yellow-500/30 dark:hover:text-yellow-100 eye-care:hover:bg-yellow-300/50'}`}
                             >
                               {word}{' '}
                             </span>
@@ -506,7 +461,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                         </p>
                         <button 
                           onClick={(e) => handleSentenceAnalysis(e, item, idx)}
-                          className="mt-1 flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-600 opacity-0 transition-opacity hover:bg-indigo-100 group-hover:opacity-100"
+                          className="mt-1 flex items-center gap-1.5 rounded-lg bg-indigo-50 px-2 py-1 text-[11px] font-bold text-indigo-600 opacity-0 transition-opacity hover:bg-indigo-100 group-hover:opacity-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-800/50 eye-care:bg-indigo-50/50"
                         >
                           <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                           Uzman Gramer Analizi
@@ -518,13 +473,13 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
 
                 {/* AI Analiz Paneli (Contextual LLM) */}
                 {selectedAnalysis && (
-                  <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-emerald-200 bg-white p-5 shadow-2xl animate-fade-in z-30 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                  <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-emerald-200 bg-white p-5 shadow-2xl animate-fade-in z-30 max-h-[70vh] overflow-y-auto custom-scrollbar dark:bg-zinc-800 dark:border-emerald-800 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                     <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                       <span className="text-xs font-bold uppercase tracking-widest text-emerald-600 flex items-center gap-1.5">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         Bağlamsal AI Analizi
                       </span>
-                      <button onClick={() => setSelectedAnalysis(null)} className="text-slate-400 hover:text-slate-700">✕</button>
+                      <button onClick={() => setSelectedAnalysis(null)} className="text-slate-400 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 eye-care:text-amber-800/70">✕</button>
                     </div>
                     
                     {selectedAnalysis.isLoading ? (
@@ -540,18 +495,18 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                     ) : selectedAnalysis.data ? (
                       <div className="space-y-3">
                         <div>
-                          <p className="text-2xl font-black text-slate-900 capitalize">{selectedAnalysis.word}</p>
+                          <p className="text-2xl font-black text-slate-900 capitalize dark:text-white eye-care:text-[#3B2F2F]">{selectedAnalysis.word}</p>
                           <p className="text-lg font-medium text-emerald-600">{selectedAnalysis.data.translation}</p>
                         </div>
                         
-                        <div className="rounded-xl bg-slate-50 p-3 text-sm border border-slate-100">
-                          <p className="text-slate-500 italic mb-2">"{selectedAnalysis.sentence}"</p>
-                          <p className="font-semibold text-slate-800">📌 Gramer: <span className="font-normal text-slate-600">{selectedAnalysis.data.grammar_structure}</span></p>
+                        <div className="rounded-xl bg-slate-50 p-3 text-sm border border-slate-100 dark:bg-zinc-900 dark:border-zinc-700 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8]">
+                          <p className="text-slate-500 italic mb-2 dark:text-zinc-400 eye-care:text-amber-800/70">"{selectedAnalysis.sentence}"</p>
+                          <p className="font-semibold text-slate-800 dark:text-zinc-200 eye-care:text-[#3B2F2F]">📌 Gramer: <span className="font-normal text-slate-600 dark:text-zinc-300 eye-care:text-[#3B2F2F]">{selectedAnalysis.data.grammar_structure}</span></p>
                         </div>
                         
                         <div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Örnek Cümle (B2)</p>
-                          <p className="text-sm font-medium text-slate-700">{selectedAnalysis.data.example_sentence}</p>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 dark:text-zinc-500 eye-care:text-amber-800/70">Örnek Cümle (B2)</p>
+                          <p className="text-sm font-medium text-slate-700 dark:text-zinc-300 eye-care:text-[#3B2F2F]">{selectedAnalysis.data.example_sentence}</p>
                         </div>
 
                         <button onClick={handleHarvestWord} className="mt-2 w-full flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-3 px-4 rounded-xl shadow-sm transition">
@@ -564,13 +519,13 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
 
                 {/* AI Uzman Gramer Analiz Paneli (Sentence Level) */}
                 {selectedSentenceAnalysis && (
-                  <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-indigo-200 bg-white p-5 shadow-2xl animate-fade-in z-30 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                  <div className="absolute bottom-6 left-6 right-6 rounded-2xl border border-indigo-200 bg-white p-5 shadow-2xl animate-fade-in z-30 max-h-[75vh] overflow-y-auto custom-scrollbar dark:bg-zinc-800 dark:border-indigo-800 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                     <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
                       <span className="text-xs font-bold uppercase tracking-widest text-indigo-600 flex items-center gap-1.5">
                         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                         Cümle Gramer Analizi
                       </span>
-                      <button onClick={() => setSelectedSentenceAnalysis(null)} className="text-slate-400 hover:text-slate-700">✕</button>
+                      <button onClick={() => setSelectedSentenceAnalysis(null)} className="text-slate-400 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200 eye-care:text-amber-800/70">✕</button>
                     </div>
                     
                     {selectedSentenceAnalysis.isLoading ? (
@@ -585,39 +540,39 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                       <p className="text-sm text-rose-500 py-2">{selectedSentenceAnalysis.error}</p>
                     ) : selectedSentenceAnalysis.data ? (
                       <div className="space-y-4 mt-2">
-                        <div className="rounded-xl bg-slate-50 p-4 border border-slate-100">
-                          <p className="text-lg font-bold text-slate-900 mb-2">"{selectedSentenceAnalysis.data.sentence}"</p>
+                        <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 dark:bg-zinc-900 dark:border-zinc-700 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8]">
+                          <p className="text-lg font-bold text-slate-900 mb-2 dark:text-white eye-care:text-[#3B2F2F]">"{selectedSentenceAnalysis.data.sentence}"</p>
                           <div className="flex flex-wrap gap-2">
                             <span className="px-2.5 py-1 bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg">{selectedSentenceAnalysis.data.tense}</span>
                             <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg">{selectedSentenceAnalysis.data.difficulty}</span>
                           </div>
-                          <p className="text-sm font-medium text-slate-600 mt-3 font-mono bg-white p-2.5 rounded-lg border border-slate-200">{selectedSentenceAnalysis.data.structure}</p>
+                          <p className="text-sm font-medium text-slate-600 mt-3 font-mono bg-white p-2.5 rounded-lg border border-slate-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8] eye-care:text-[#3B2F2F]">{selectedSentenceAnalysis.data.structure}</p>
                         </div>
 
                         <div>
-                          <h4 className="font-bold text-slate-800 text-sm mb-2 flex items-center gap-1.5"><span className="text-lg">📌</span> Neden bu yapı kullanıldı?</h4>
-                          <p className="text-sm text-slate-600 leading-relaxed">{selectedSentenceAnalysis.data.whyThisStructure}</p>
+                          <h4 className="font-bold text-slate-800 text-sm mb-2 flex items-center gap-1.5 dark:text-zinc-200 eye-care:text-[#3B2F2F]"><span className="text-lg">📌</span> Neden bu yapı kullanıldı?</h4>
+                          <p className="text-sm text-slate-600 leading-relaxed dark:text-zinc-400 eye-care:text-amber-800/70">{selectedSentenceAnalysis.data.whyThisStructure}</p>
                         </div>
 
                         <div>
-                          <h4 className="font-bold text-slate-800 text-sm mb-2 flex items-center gap-1.5"><span className="text-lg">🧩</span> Cümlenin Öğeleri</h4>
+                          <h4 className="font-bold text-slate-800 text-sm mb-2 flex items-center gap-1.5 dark:text-zinc-200 eye-care:text-[#3B2F2F]"><span className="text-lg">🧩</span> Cümlenin Öğeleri</h4>
                           <div className="space-y-2">
                             {selectedSentenceAnalysis.data.components.map((comp, i) => (
-                              <div key={i} className="text-sm bg-white border border-slate-100 p-3 rounded-xl shadow-sm flex flex-col gap-1.5">
+                              <div key={i} className="text-sm bg-white border border-slate-100 p-3 rounded-xl shadow-sm flex flex-col gap-1.5 dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                                 <div className="flex items-center justify-between">
                                   <span className="font-bold text-indigo-700 text-base">{comp.part}</span>
-                                  <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{comp.role}</span>
+                                  <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md dark:bg-zinc-700 dark:text-zinc-300 eye-care:bg-[#F4EAD5] eye-care:text-amber-800/70">{comp.role}</span>
                                 </div>
-                                <span className="text-slate-600">{comp.explanation}</span>
+                                <span className="text-slate-600 dark:text-zinc-400 eye-care:text-amber-800/70">{comp.explanation}</span>
                               </div>
                             ))}
                           </div>
                         </div>
 
                         {selectedSentenceAnalysis.data.advancedPattern && (
-                          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl">
-                            <h4 className="font-bold text-amber-900 text-sm mb-1 flex items-center gap-1.5"><span className="text-lg">✨</span> İleri Seviye Kullanım</h4>
-                            <p className="text-sm text-amber-800 leading-relaxed">{selectedSentenceAnalysis.data.advancedPattern}</p>
+                          <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl dark:bg-amber-900/20 dark:border-amber-800/50 eye-care:bg-amber-100/50">
+                            <h4 className="font-bold text-amber-900 text-sm mb-1 flex items-center gap-1.5 dark:text-amber-100"><span className="text-lg">✨</span> İleri Seviye Kullanım</h4>
+                            <p className="text-sm text-amber-800 leading-relaxed dark:text-amber-200">{selectedSentenceAnalysis.data.advancedPattern}</p>
                           </div>
                         )}
 
@@ -641,10 +596,10 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                       <circle className="opacity-25" cx="12" cy="12" r="10" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <p className="font-semibold text-slate-600">B1-B2 seviyesinde 10-20 soru ve kelimeler hazırlanıyor...</p>
+                    <p className="font-semibold text-slate-600 dark:text-zinc-300 eye-care:text-[#3B2F2F]">B1-B2 seviyesinde 10-20 soru ve kelimeler hazırlanıyor...</p>
                   </div>
                 ) : !quizData ? (
-                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500">
+                  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-500 dark:bg-zinc-900/50 dark:border-zinc-700 dark:text-zinc-400 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8] eye-care:text-amber-800/70">
                     <p className="mb-4">Mühendislik veya profesyonel hayata uygun B1-B2 zorluğunda 10-20 soruluk quiz ve ileri seviye kelime listesi üretin.</p>
                     <button onClick={handleGenerateQuiz} disabled={transcriptData.length === 0} className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50">
                       ✨ Quiz ve Kelimeleri Üret
@@ -654,16 +609,16 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                 ) : (
                   <>
                     {quizData.advancedWords?.length > 0 && (
-                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm mb-6">
-                        <h3 className="font-bold text-emerald-900 mb-4 text-lg flex items-center gap-2">📚 B2+ Seviye Kelimeler</h3>
+                      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm mb-6 dark:bg-emerald-900/20 dark:border-emerald-800/50 eye-care:bg-emerald-50/50">
+                        <h3 className="font-bold text-emerald-900 mb-4 text-lg flex items-center gap-2 dark:text-emerald-100">📚 B2+ Seviye Kelimeler</h3>
                         <div className="grid gap-3 sm:grid-cols-2">
                           {quizData.advancedWords.map((word, i) => {
                             const isWordAdded = words.some(w => w.english.toLowerCase() === word.word.toLowerCase());
                             return (
-                            <div key={i} className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm flex flex-col justify-between">
+                            <div key={i} className="rounded-xl border border-emerald-100 bg-white p-4 shadow-sm flex flex-col justify-between dark:bg-zinc-800 dark:border-emerald-800/50 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                               <div>
                                 <div className="flex justify-between items-center mb-2">
-                                  <span className="font-bold text-emerald-700 text-lg">{word.word}</span>
+                                  <span className="font-bold text-emerald-700 text-lg dark:text-emerald-400">{word.word}</span>
                                   <button 
                                     disabled={isWordAdded}
                                     onClick={() => handleAddAdvancedWord(word)}
@@ -672,8 +627,8 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                                     {isWordAdded ? 'Eklendi ✓' : '+ Ekle'}
                                   </button>
                                 </div>
-                                <p className="text-sm font-medium text-slate-700 mb-2">{word.turkishMeaning}</p>
-                                <p className="text-xs italic text-slate-500">"{word.contextSentence}"</p>
+                                <p className="text-sm font-medium text-slate-700 mb-2 dark:text-zinc-300 eye-care:text-[#3B2F2F]">{word.turkishMeaning}</p>
+                                <p className="text-xs italic text-slate-500 dark:text-zinc-400 eye-care:text-amber-800/70">"{word.contextSentence}"</p>
                               </div>
                             </div>
                             )
@@ -682,28 +637,28 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                       </div>
                     )}
 
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Video Bağlamlı Sorular</p>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2 dark:text-zinc-500 eye-care:text-amber-800/70">Video Bağlamlı Sorular</p>
                     {quizData.questions.map((quiz, qIndex) => (
-                  <div key={quiz.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div key={quiz.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">
+                      <span className="bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider dark:bg-zinc-700 eye-care:bg-amber-900">
                         Soru {qIndex + 1}
                       </span>
                     </div>
-                    <p className="font-semibold text-slate-800 mb-4 whitespace-pre-wrap">{quiz.question}</p>
+                    <p className="font-semibold text-slate-800 mb-4 whitespace-pre-wrap dark:text-zinc-100 eye-care:text-[#3B2F2F]">{quiz.question}</p>
                     <div className="space-y-2">
                       {quiz.options.map((opt, oIndex) => {
                         const isSelected = quizAnswers[quiz.id] === oIndex;
                         const isRevealed = showExplanations[quiz.id];
                         const isCorrect = quiz.correct === oIndex;
                         
-                        let btnClass = "border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                        let btnClass = "border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 dark:bg-zinc-900/50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8] eye-care:text-[#3B2F2F] eye-care:hover:bg-[#EAE0C8]"
                         if (isRevealed) {
-                          if (isCorrect) btnClass = "border-emerald-500 bg-emerald-50 text-emerald-700 font-bold"
-                          else if (isSelected) btnClass = "border-rose-500 bg-rose-50 text-rose-700"
-                          else btnClass = "border-slate-100 bg-slate-50 text-slate-400 opacity-50"
+                          if (isCorrect) btnClass = "border-emerald-500 bg-emerald-50 text-emerald-700 font-bold dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-500"
+                          else if (isSelected) btnClass = "border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300 dark:border-rose-500"
+                          else btnClass = "border-slate-100 bg-slate-50 text-slate-400 opacity-50 dark:bg-zinc-900/30 dark:text-zinc-600 dark:border-zinc-800 eye-care:bg-[#F4EAD5]/50 eye-care:text-amber-900/50 eye-care:border-[#EAE0C8]/50"
                         } else if (isSelected) {
-                          btnClass = "border-indigo-500 bg-indigo-50 text-indigo-700 font-bold"
+                          btnClass = "border-indigo-500 bg-indigo-50 text-indigo-700 font-bold dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-500"
                         }
 
                         return (
@@ -715,13 +670,13 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                     </div>
                     
                     {quizAnswers[quiz.id] !== undefined && !showExplanations[quiz.id] && (
-                      <button onClick={() => setShowExplanations({...showExplanations, [quiz.id]: true})} className="mt-4 text-sm font-bold text-indigo-600 hover:text-indigo-800 underline">
+                      <button onClick={() => setShowExplanations({...showExplanations, [quiz.id]: true})} className="mt-4 text-sm font-bold text-indigo-600 hover:text-indigo-800 underline dark:text-indigo-400 dark:hover:text-indigo-300">
                         Cevabı Kontrol Et ve Açıklamayı Göster
                       </button>
                     )}
                     
                     {showExplanations[quiz.id] && (
-                      <div className={`mt-4 p-4 rounded-xl text-sm leading-relaxed ${quizAnswers[quiz.id] === quiz.correct ? 'bg-emerald-50 border border-emerald-100 text-emerald-800' : 'bg-rose-50 border border-rose-100 text-rose-800'}`}>
+                      <div className={`mt-4 p-4 rounded-xl text-sm leading-relaxed ${quizAnswers[quiz.id] === quiz.correct ? 'bg-emerald-50 border border-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:border-emerald-800/50 dark:text-emerald-200' : 'bg-rose-50 border border-rose-100 text-rose-800 dark:bg-rose-900/20 dark:border-rose-800/50 dark:text-rose-200'}`}>
                         <p className="font-bold mb-1">{quizAnswers[quiz.id] === quiz.correct ? '🎉 Doğru!' : '❌ Yanlış!'}</p>
                         <p>{quiz.explanation}</p>
                       </div>
@@ -748,15 +703,16 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
       </button>
 
       {/* Slide-over Floating Notepad */}
-      <div className={`fixed top-0 right-0 z-[100] h-full w-80 md:w-96 transform border-l border-slate-200 bg-white dark:bg-zinc-900 eye-care:bg-sepia-surface shadow-2xl transition-transform duration-300 ease-in-out ${isNotesOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      {isNotesOpen && (
+        <div className="fixed top-0 right-0 z-[100] h-full w-80 md:w-96 border-l border-slate-200 bg-white dark:bg-zinc-900 eye-care:bg-sepia-surface shadow-2xl animate-fade-in">
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 className="text-lg font-bold text-slate-900">📝 Video Notes</h3>
+          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5 dark:border-zinc-700 eye-care:border-[#EAE0C8]">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-zinc-100 eye-care:text-[#3B2F2F]">📝 Video Notes</h3>
             <div className="flex items-center gap-2">
-              <button onClick={() => setNoteTab(noteTab === 'write' ? 'archive' : 'write')} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200">
+              <button onClick={() => setNoteTab(noteTab === 'write' ? 'archive' : 'write')} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 eye-care:bg-[#EAE0C8] eye-care:text-amber-900 eye-care:hover:bg-[#D5C6A8]">
                 {noteTab === 'write' ? '🗂️ Arşiv' : '✏️ Yaz'}
               </button>
-              <button onClick={() => setIsNotesOpen(false)} className="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900">
+              <button onClick={() => setIsNotesOpen(false)} className="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 dark:hover:text-white eye-care:bg-[#EAE0C8] eye-care:text-amber-800/70 eye-care:hover:bg-[#D5C6A8] eye-care:hover:text-[#3B2F2F]">
                 <X size={18} />
               </button>
             </div>
@@ -768,32 +724,32 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Videoyu izlerken notlarınızı buraya alın..."
-                className="flex-1 resize-none bg-transparent p-6 font-serif text-lg text-slate-800 outline-none leading-relaxed custom-scrollbar focus:outline-none"
+                className="flex-1 resize-none bg-transparent p-6 font-serif text-lg text-slate-800 placeholder:text-slate-400 outline-none leading-relaxed custom-scrollbar focus:outline-none dark:text-zinc-100 dark:placeholder:text-zinc-500 eye-care:text-[#3B2F2F] eye-care:placeholder:text-amber-800/50"
               />
-              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-4">
-                <span className="text-xs font-semibold text-slate-400">✓ Autosaved</span>
+              <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-6 py-4 dark:bg-zinc-900 dark:border-zinc-800 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8]">
+                <span className="text-xs font-semibold text-slate-400 dark:text-zinc-500 eye-care:text-amber-800/70">✓ Autosaved</span>
                 <button onClick={handleSaveVideoNote} disabled={!notes.trim()} className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-50">
                   💾 Arşive Kaydet
                 </button>
               </div>
             </>
           ) : (
-            <div className="flex-1 overflow-y-auto bg-slate-50 p-6 custom-scrollbar space-y-4">
+            <div className="flex-1 overflow-y-auto bg-slate-50 p-6 custom-scrollbar space-y-4 dark:bg-zinc-900 eye-care:bg-[#F4EAD5]">
               {savedVideoNotes.length === 0 ? (
-                <div className="text-center text-slate-500 py-10">
+                <div className="text-center text-slate-500 py-10 dark:text-zinc-400 eye-care:text-amber-800/70">
                   <span className="text-4xl mb-3 block opacity-50">📂</span>
                   <p className="text-sm font-semibold">Henüz kaydedilmiş not yok.</p>
                 </div>
               ) : (
                 savedVideoNotes.map(note => (
-                  <div key={note.id} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                  <div key={note.id} className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
                     <div className="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(note.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'})}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-slate-100 dark:text-zinc-500 dark:border-zinc-700 eye-care:text-amber-800/70 eye-care:border-[#EAE0C8]">{new Date(note.date).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'})}</span>
                       <button onClick={() => handleDeleteVideoNote(note.id)} className="text-rose-400 hover:text-rose-600 transition" title="Sil"><X size={14} /></button>
                     </div>
                     {note.url && <a href={note.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline mb-2 block truncate font-medium">🔗 {note.url}</a>}
-                    <p className="text-sm text-slate-700 font-serif whitespace-pre-wrap leading-relaxed line-clamp-6">{note.content}</p>
-                    <button onClick={() => { setNotes(note.content); setNoteTab('write'); }} className="mt-4 w-full rounded-xl bg-slate-100 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-200">✏️ Düzenle / Devam Et</button>
+                    <p className="text-sm text-slate-700 font-serif whitespace-pre-wrap leading-relaxed line-clamp-6 dark:text-zinc-300 eye-care:text-[#3B2F2F]">{note.content}</p>
+                    <button onClick={() => { setNotes(note.content); setNoteTab('write'); }} className="mt-4 w-full rounded-xl bg-slate-100 py-2 text-xs font-bold text-slate-600 transition hover:bg-slate-200 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600 eye-care:bg-[#EAE0C8] eye-care:text-amber-900 eye-care:hover:bg-[#D5C6A8]">✏️ Düzenle / Devam Et</button>
                   </div>
                 ))
               )}
@@ -801,6 +757,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
           )}
         </div>
       </div>
+      )}
     </div>
   )
 }

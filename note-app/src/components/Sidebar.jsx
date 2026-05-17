@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Library, Layers, BrainCircuit, BookOpen, Mic, Headphones, BookMarked, PenTool, Sparkles, MonitorPlay, PanelLeftClose, PanelLeftOpen, AudioLines } from 'lucide-react'
+import { Home, Library, Layers, BrainCircuit, BookOpen, Mic, Headphones, BookMarked, PenTool, Sparkles, MonitorPlay, PanelLeftClose, PanelLeftOpen, AudioLines, ListTodo } from 'lucide-react'
 
 const MENU_MAIN = [
   { path: '/', label: 'Dashboard', icon: Home, tourClass: 'tour-dashboard' },
+  { path: '/tasks', label: 'Daily Tasks', icon: ListTodo, tourClass: 'tour-tasks' },
   { path: '/words', label: 'Word List', icon: Library, tourClass: 'tour-wordlist' },
   { path: '/flashcard', label: 'Flashcards', icon: Layers },
   { path: '/quiz', label: 'Quiz', icon: BrainCircuit },

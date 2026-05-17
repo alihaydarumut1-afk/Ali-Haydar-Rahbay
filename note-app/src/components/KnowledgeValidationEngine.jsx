@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 
-const defaultKey = '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'
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 // --- KALICI BELLEK (IndexedDB) YÖNETİMİ ---
 const DB_NAME = 'PronunciationDB'
@@ -32,78 +32,37 @@ const getAudioFromDB = async (key) => {
 
 // Yardımcı fonksiyon: API İsteği
 async function fetchAI(prompt) {
-  const key = localStorage.getItem('geminiApiKey') || defaultKey
-  if (key.startsWith('sk-')) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'system', content: prompt }],
-        temperature: 0.3,
-      })
-    })
-    if (!response.ok) throw new Error('OpenAI API Hatası')
-    const data = await response.json()
-    return data.choices[0].message.content
-  } else {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3 },
-      }),
-    })
-    if (!response.ok) throw new Error('Gemini API Hatası')
-    const data = await response.json()
-    return data.candidates[0].content.parts[0].text
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson: false })
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
   }
+  return data.content;
 }
 
 // Yeni Yardımcı Fonksiyon: Audio Transcription via AI (Whisper / Gemini)
 async function transcribeAudioWithAI(blob) {
-  const key = localStorage.getItem('geminiApiKey') || defaultKey
-  if (key.startsWith('sk-')) {
-    const formData = new FormData()
-    const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
-    formData.append('file', blob, `audio.${ext}`)
-    formData.append('model', 'whisper-1')
-    formData.append('language', 'en') // İngilizce telaffuzu zorlamak için
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${key}` },
-      body: formData
-    })
-    if (!response.ok) throw new Error('OpenAI Transcription Hatası')
-    const data = await response.json()
-    return data.text
-  } else {
-    const base64Audio = await new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onloadend = () => resolve(reader.result.split(',')[1])
-      reader.readAsDataURL(blob)
-    })
-    
-    const cleanMimeType = blob.type.split(';')[0] || 'audio/webm'
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: "Transcribe the following English audio accurately. Reply ONLY with the transcription, do not add any markdown, comments, or extra text." },
-            { inlineData: { mimeType: cleanMimeType, data: base64Audio } }
-          ]
-        }],
-        generationConfig: { temperature: 0.1 },
-      }),
-    })
-    if (!response.ok) throw new Error('Gemini API Hatası')
-    const data = await response.json()
-    return data.candidates[0].content.parts[0].text.trim()
+  const base64Audio = await new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result.split(',')[1])
+    reader.readAsDataURL(blob)
+  })
+  const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
+  })
+  const data = await response.json()
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'Transcription Hatası');
   }
+  return data.text;
 }
 
 const normalize = (str) => {
@@ -270,7 +229,6 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
 
     try {
       let blobToPlay = null
-      const apiKey = localStorage.getItem('geminiApiKey')
       const cacheKey = `en-US-${text.toLowerCase().trim()}`
       
       // 1. IndexedDB Check
@@ -278,14 +236,14 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
       if (cachedBlob) {
         blobToPlay = cachedBlob
       } else {
-        if (apiKey && apiKey.startsWith('sk-')) {
-        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'tts-1', voice: 'alloy', input: text })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'alloy' })
         })
-          if (response.ok) { blobToPlay = await response.blob(); await saveAudioToDB(cacheKey, blobToPlay); }
-      }
+        if (response.ok) { blobToPlay = await response.blob(); await saveAudioToDB(cacheKey, blobToPlay); }
+        else if (response.status === 429) { const err = await response.json(); alert(err.error); }
+
       if (!blobToPlay) {
           const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en-US&q=${encodeURIComponent(text)}`
         const res = await fetch(googleUrl)

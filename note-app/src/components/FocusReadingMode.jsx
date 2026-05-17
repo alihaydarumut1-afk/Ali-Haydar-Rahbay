@@ -1,4 +1,6 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import ExportButtons from './ExportButtons.jsx'
 
 export default function FocusReadingMode({ text, title, onClose }) {
 
@@ -19,7 +21,7 @@ export default function FocusReadingMode({ text, title, onClose }) {
 
   if (!text) return null
 
-  return (
+  return createPortal(
     <div 
       className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-md animate-fade-in"
       onClick={onClose}
@@ -42,14 +44,20 @@ export default function FocusReadingMode({ text, title, onClose }) {
         </svg>
       </button>
 
-      {/* İçerik Sarmalayıcı (Ortalama ve Kaydırma İçin) */}
-      <div className="flex min-h-full items-start justify-center p-4 sm:p-12">
+      {/* Flexbox scroll hesaplama hatalarını önleyen blok ve mx-auto yapısı */}
+      <div className="w-full min-h-screen px-4 py-8 sm:px-12 sm:py-12">
         
         {/* Fiziksel A4 Kağıdı Efekti */}
         <div 
-          className="paper-reading-mode relative my-8 w-full max-w-3xl shrink-0 bg-[#FAFAFA] px-8 py-16 shadow-[0_25px_65px_rgba(0,0,0,0.5)] sm:my-12 sm:px-20 sm:py-24"
+          id="focus-reading-content"
+          className="paper-reading-mode mx-auto relative h-auto min-h-[80vh] w-full max-w-3xl bg-[#FAFAFA] px-8 py-16 shadow-[0_25px_65px_rgba(0,0,0,0.5)] sm:px-20 sm:py-24"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Export Butonları (Kâğıdın Sağ Üst Köşesi) */}
+          <div className="absolute right-8 top-8 sm:right-16 sm:top-12">
+            <ExportButtons elementId="focus-reading-content" fileName={title || 'Reading_Material'} />
+          </div>
+
           {title && (
             <h1 className="mb-12 text-center text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">
               {title}
@@ -66,5 +74,5 @@ export default function FocusReadingMode({ text, title, onClose }) {
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import ExportButtons from './ExportButtons.jsx'
 
 const THEMES = {
   daylight: { bg: '#FBF9F6', text: '#333333', label: 'Güneş Işığı' },
@@ -55,7 +57,7 @@ export default function UniversalFocusMode({ isOpen, onClose, content, mode = 'r
           value={content}
           onChange={handleTextareaChange}
           placeholder="Yazmaya başlayın..."
-          className="w-full min-h-screen resize-none bg-transparent leading-loose outline-none"
+          className="w-full min-h-[60vh] resize-none bg-transparent leading-loose outline-none"
           style={{ color: 'inherit' }}
         />
       )
@@ -110,8 +112,8 @@ export default function UniversalFocusMode({ isOpen, onClose, content, mode = 'r
     )
   }
 
-  return (
-    <div className="fixed inset-0 z-[100] h-full w-full overflow-y-auto bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={onClose}>
       <style dangerouslySetInnerHTML={{ __html: `
         @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
@@ -127,6 +129,7 @@ export default function UniversalFocusMode({ isOpen, onClose, content, mode = 'r
 
       {/* Üst Kontrol Menüsü */}
       <div className="fixed right-6 top-6 z-[110] flex items-center gap-3">
+        <ExportButtons elementId="universal-focus-content" fileName={title || 'Document'} />
         <div className="relative">
           <button
             onClick={(e) => { e.stopPropagation(); setIsSettingsOpen(!isSettingsOpen) }}
@@ -191,11 +194,12 @@ export default function UniversalFocusMode({ isOpen, onClose, content, mode = 'r
         </button>
       </div>
 
-      {/* Kaydırma ve Ortalama İçin İç Kapsayıcı */}
-      <div className="flex min-h-screen items-start justify-center p-4 sm:p-12">
-        {/* A4 Kağıdı (min-h-screen h-auto my-12 ile kaydırma sorunu çözüldü) */}
+      {/* Flexbox scroll hesaplama hatalarını önleyen blok ve mx-auto yapısı */}
+      <div className="w-full min-h-screen px-4 py-8 sm:px-12 sm:py-12">
+        {/* A4 Kağıdı */}
         <div 
-          className="paper-reading-mode relative my-12 h-auto min-h-screen w-full max-w-3xl shrink-0 px-8 py-16 shadow-[0_25px_65px_rgba(0,0,0,0.5)] transition-colors duration-500 sm:px-20 sm:py-24"
+          id="universal-focus-content"
+          className="paper-reading-mode mx-auto relative h-auto min-h-[80vh] w-full max-w-3xl px-8 py-16 shadow-[0_25px_65px_rgba(0,0,0,0.5)] transition-colors duration-500 sm:px-20 sm:py-24"
           onClick={(e) => {
             e.stopPropagation()
             setIsSettingsOpen(false)
@@ -211,5 +215,5 @@ export default function UniversalFocusMode({ isOpen, onClose, content, mode = 'r
         </div>
       </div>
     </div>
-  )
+  , document.body)
 }

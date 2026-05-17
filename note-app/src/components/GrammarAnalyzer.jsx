@@ -56,7 +56,7 @@ export default function GrammarAnalyzer({ initialText, initialId, initialTitle, 
   const [editContent, setEditContent] = useState('')
   const [isFocusModeOpen, setIsFocusModeOpen] = useState(false)
   
-  const defaultKey = ''
+  const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
   const currentItem = allItems.find(i => i.id === expandedId) || null
 
@@ -95,33 +95,18 @@ Analiz edilecek metin:
 "${currentItem.content}"`
 
     try {
-      const key = localStorage.getItem('geminiApiKey') || defaultKey
-      let response;
-      if (key.startsWith('sk-')) {
-        response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'system', content: prompt }],
-            temperature: 0.3,
-          })
-        })
-      } else {
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key=${key}`
-        response = await fetch(geminiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } }),
-        })
+      const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, expectJson: true })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 429) alert(data.error);
+        throw new Error(data.error || 'AI Hatası');
       }
-
-      if (!response.ok) throw new Error('API yanıt vermedi')
       
-      const data = await response.json()
-      const content = key.startsWith('sk-') ? (data.choices?.[0]?.message?.content || '') : (data.candidates?.[0]?.content?.parts?.[0]?.text || '')
-      
-      let jsonStr = content.replace(/```json/gi, '').replace(/```/g, '').trim()
+      let jsonStr = data.content.replace(/```json/gi, '').replace(/```/g, '').trim()
       const jsonMatch = jsonStr.match(/\[\s*\{.*?\}\s*\]/s)
       if (jsonMatch) {
         jsonStr = jsonMatch[0]
