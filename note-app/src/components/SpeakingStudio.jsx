@@ -1,67 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Bot, Mic, Square, Save, Trash2, RotateCcw, Plus, User } from 'lucide-react'
 import useWords from '../hooks/useWords.js'
-
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
-
-// Yapay Zeka İstek Motoru (Hem Metin Hem JSON formatı için)
-async function fetchAI(prompt, expectJson = false, maxTokensOverride = null) {
-  try {
-    const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, expectJson, maxTokens: maxTokensOverride })
-    });
-    
-    const textRaw = await response.text();
-    let data;
-    try {
-      data = textRaw ? JSON.parse(textRaw) : {};
-    } catch (err) {
-      throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
-    }
-
-    if (!response.ok) {
-      alert('Sistem Mesajı: ' + (data.error || 'Yapay Zeka Hatası (Sunucu veya API şifresi kaynaklı)'));
-      throw new Error(data.error || 'AI Hatası');
-    }
-    if (expectJson) {
-      try {
-        let cleanJson = data.content.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const match = cleanJson.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
-        if (match) cleanJson = match[0];
-        return JSON.parse(cleanJson);
-      } catch(e) {
-        throw new Error('Yapay zeka eksik veri döndürdü.');
-      }
-    }
-    return data.content;
-  } catch (err) {
-    console.error(err)
-    alert('Bağlantı Hatası: ' + err.message)
-    throw err
-  }
-}
-
-// Ses dosyasını (Blob) Yapay Zeka ile Metne Çevirme
-async function transcribeAudioWithAI(blob) {
-  const base64Audio = await new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result.split(',')[1])
-    reader.readAsDataURL(blob)
-  })
-  const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
-  })
-  const data = await response.json()
-  if (!response.ok) {
-    alert('Sistem Mesajı: ' + (data.error || 'Ses çözümleme hatası'));
-    throw new Error(data.error || 'Transcription Hatası');
-  }
-  return data.text;
-}
+import { fetchAI, transcribeAudioWithAI, generateSpeechWithAI } from '../utils/api.js'
 
 // --- KALICI BELLEK (IndexedDB) YÖNETİMİ ---
 const DB_NAME = 'PronunciationDB'
@@ -194,14 +134,10 @@ export default function SpeakingStudio() {
       if (cachedBlob) {
         blobToPlay = cachedBlob
       } else {
-        const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: 'alloy' })
-        })
-        if (response.ok) { blobToPlay = await response.blob(); await saveAudioToDB(cacheKey, blobToPlay); }
-        else if (response.status === 429) { const err = await response.json(); alert(err.error); }
-
+        try {
+          blobToPlay = await generateSpeechWithAI(text);
+          await saveAudioToDB(cacheKey, blobToPlay);
+        } catch (err) { console.warn('Speech API failed', err); }
       if (!blobToPlay) {
           const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(text)}`
         const res = await fetch(googleUrl)

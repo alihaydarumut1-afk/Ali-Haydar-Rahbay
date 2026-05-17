@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+import { fetchAI, transcribeAudioWithAI, generateSpeechWithAI } from '../utils/api.js'
 
 // --- KALICI BELLEK (IndexedDB) YÖNETİMİ ---
 const DB_NAME = 'PronunciationDB'
@@ -28,41 +27,6 @@ const getAudioFromDB = async (key) => {
       req.onerror = () => resolve(null)
     })
   } catch (e) { return null }
-}
-
-// Yardımcı fonksiyon: API İsteği
-async function fetchAI(prompt, expectJson = false) {
-  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, expectJson, maxTokens: expectJson ? 8000 : 1500 })
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    if (response.status === 429) alert(data.error);
-    throw new Error(data.error || 'AI Hatası');
-  }
-  return data.content;
-}
-
-// Yeni Yardımcı Fonksiyon: Audio Transcription via AI (Whisper / Gemini)
-async function transcribeAudioWithAI(blob) {
-  const base64Audio = await new Promise((resolve) => {
-    const reader = new FileReader()
-    reader.onloadend = () => resolve(reader.result.split(',')[1])
-    reader.readAsDataURL(blob)
-  })
-  const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
-  })
-  const data = await response.json()
-  if (!response.ok) {
-    if (response.status === 429) alert(data.error);
-    throw new Error(data.error || 'Transcription Hatası');
-  }
-  return data.text;
 }
 
 const normalize = (str) => {
@@ -236,14 +200,10 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
       if (cachedBlob) {
         blobToPlay = cachedBlob
       } else {
-        const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: 'alloy' })
-        })
-        if (response.ok) { blobToPlay = await response.blob(); await saveAudioToDB(cacheKey, blobToPlay); }
-        else if (response.status === 429) { const err = await response.json(); alert(err.error); }
-
+        try {
+          blobToPlay = await generateSpeechWithAI(text);
+          await saveAudioToDB(cacheKey, blobToPlay);
+        } catch(err) { console.warn('Speech error', err) }
       if (!blobToPlay) {
           const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en-US&q=${encodeURIComponent(text)}`
         const res = await fetch(googleUrl)

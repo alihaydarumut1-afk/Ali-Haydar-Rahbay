@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Mic, Loader2, Trash2 } from 'lucide-react'
-
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+import { fetchAI, transcribeAudioWithAI } from '../utils/api.js'
 
 export default function VoiceRecorder({ onTranscription }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -98,26 +97,7 @@ export default function VoiceRecorder({ onTranscription }) {
 
     // 1. AŞAMA: OPENAI WHISPER VEYA GEMINI STT (Sesten Metne)
     try {
-      const base64Audio = await new Promise((resolve) => {
-        const reader = new FileReader()
-        reader.onloadend = () => resolve(reader.result.split(',')[1])
-        reader.readAsDataURL(blob)
-      })
-      const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        alert('Sistem Mesajı: ' + (errorData.error || 'Ses çözümleme hatası'));
-        console.error('API Hatası:', errorData)
-        throw new Error(errorData.error?.message || 'API Sunucusu yanıt vermedi.')
-      }
-
-      const data = await response.json()
-      transcriptText = data.text?.trim() || ''
+      transcriptText = await transcribeAudioWithAI(blob)
 
       if (transcriptText && ['you', 'you.', 'thank you.', 'thank you', 'okay', 'okay.'].includes(transcriptText.toLowerCase())) {
         transcriptText = ''
@@ -156,17 +136,8 @@ export default function VoiceRecorder({ onTranscription }) {
       
       Transcript: '${transcriptText}'`
 
-      const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, expectJson: true })
-      })
-      const data = await response.json()
-      if (!response.ok) {
-        alert('Sistem Mesajı: ' + (data.error || 'Yapay Zeka Hatası'));
-        throw new Error(data.error || 'AI Hatası');
-      }
-      setAiFeedback(JSON.parse(data.content))
+      const feedbackResult = await fetchAI(prompt, true)
+      setAiFeedback(feedbackResult)
     } catch (err) {
       console.error('Eval error', err)
     } finally {

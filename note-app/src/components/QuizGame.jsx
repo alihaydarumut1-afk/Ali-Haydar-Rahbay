@@ -2,22 +2,8 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import shuffleArray from '../utils/shuffle.js'
 import SynonymQuiz from './SynonymQuiz.jsx'
 import { ChevronDown, Loader2 } from 'lucide-react'
+import { fetchAI, generateSpeechWithAI } from '../utils/api.js'
 
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
-
-async function fetchAI(prompt) {
-  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, expectJson: false })
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    if (response.status === 429) alert(data.error);
-    throw new Error(data.error || 'AI Hatası');
-  }
-  return data.content;
-}
 
 function buildUnifiedDeck(targetWords, allWords) {
   const shuffledWords = shuffleArray(targetWords)
@@ -135,15 +121,7 @@ export default function QuizGame({ words }) {
         
         setAudioStatus(prev => ({ ...prev, [qId]: 'loading' }))
         try {
-          let blob = null
-          
-          const res = await fetch(`${getBaseUrl()}/api/ai/speech`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text, voice: 'alloy' })
-          });
-          if (res.ok) { blob = await res.blob(); }
-
+          const blob = await generateSpeechWithAI(text);
           if (blob) {
             const url = URL.createObjectURL(blob)
             preloadedAudio.current[qId] = url
@@ -175,15 +153,7 @@ export default function QuizGame({ words }) {
     try {
       let url = preloadedAudio.current[qId]
       if (!url) {
-        let blob = null
-        
-        const res = await fetch(`${getBaseUrl()}/api/ai/speech`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: 'alloy' })
-        });
-        if (res.ok) { blob = await res.blob(); }
-
+        const blob = await generateSpeechWithAI(text).catch(() => null);
         if (blob && !url) {
           url = URL.createObjectURL(blob)
           preloadedAudio.current[qId] = url

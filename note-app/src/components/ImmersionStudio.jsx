@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { PenTool, X } from 'lucide-react'
 import useWords from '../hooks/useWords.js'
+import { fetchAI } from '../utils/api.js'
 
 const formatUrl = (url) => {
   if (!url) return "";
@@ -14,56 +15,6 @@ const getYouTubeId = (url) => {
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 };
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
-
-async function fetchAI(prompt, expectJson = false) {
-  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, expectJson, maxTokens: expectJson ? 8000 : 1500 })
-  });
-  
-  const textRaw = await response.text();
-  let data;
-  try {
-    data = textRaw ? JSON.parse(textRaw) : {};
-  } catch (err) {
-    throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
-  }
-
-  if (!response.ok) {
-    if (response.status === 429) alert(data.error);
-    throw new Error(data.error || 'AI hatası');
-  }
-
-  return data.content;
-}
-
-function parseAIJson(content) {
-  let jsonText = content.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const match = jsonText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
-  if (match) {
-    jsonText = match[0];
-  }
-  try {
-    return JSON.parse(jsonText);
-  } catch (e) {
-    throw new Error('Yapay zeka eksik veri döndürdü, lütfen tekrar deneyin.');
-  }
-}
-
-export default function ImmersionStudio() {
-  const { words = [], addWord } = useWords() || {}
-  // 1. Temiz State Mimarisi
-  const [inputValue, setInputValue] = useState('')
-  const [activeUrl, setActiveUrl] = useState('')
-  const [isMounted, setIsMounted] = useState(false)
-  
-  // Dil Laboratuvarı Sağ Panel State'leri
-  const [rightTab, setRightTab] = useState('transcript') // transcript, grammar, quiz
-  const [currentTime, setCurrentTime] = useState(0) // Senkronizasyon Motoru State'i
-  const [selectedAnalysis, setSelectedAnalysis] = useState(null) // Bağlamsal AI Analiz State'i
-  const [selectedSentenceAnalysis, setSelectedSentenceAnalysis] = useState(null) // Uzman Cümle Analizi State'i
   
   // AI Veri State'leri
   const [transcriptData, setTranscriptData] = useState([])

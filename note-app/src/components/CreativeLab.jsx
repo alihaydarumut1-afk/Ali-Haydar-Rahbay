@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react'
 import useSavedCreations from '../hooks/useSavedCreations.js'
 import SavedCreationsDrawer from './SavedCreationsDrawer.jsx'
-
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+import { fetchAI } from '../utils/api.js'
 
 export default function CreativeLab({ words = [], onPractice }) {
   const [selectedIds, setSelectedIds] = useState([])
@@ -93,26 +92,8 @@ export default function CreativeLab({ words = [], onPractice }) {
     setIsGenerating(true)
 
     try {
-      const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: aiPrompt, expectJson: false })
-      });
-      
-      const textRaw = await response.text();
-      let data;
-      try {
-        data = textRaw ? JSON.parse(textRaw) : {};
-      } catch (err) {
-        throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
-      }
-
-      if (!response.ok) {
-        alert('Sistem Mesajı: ' + (data.error || 'Yapay Zeka Hatası (Sunucu veya API şifresi kaynaklı)'));
-        throw new Error(data.error || 'AI Hatası');
-      }
-
-      setOutput(data.content)
+      const content = await fetchAI(aiPrompt, false);
+      setOutput(content)
     } catch (error) {
       console.error('Creative generation error:', error)
       alert('Bağlantı Hatası: ' + error.message);
