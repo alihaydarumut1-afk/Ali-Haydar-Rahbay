@@ -3,7 +3,15 @@ import { Plus, Save, RotateCcw, Trash2, BookOpen, PenTool, CheckCircle, FileText
 import useWords from '../hooks/useWords.js'
 import useWritingHabits from '../hooks/useWritingHabits.js'
 import UniversalFocusMode from './UniversalFocusMode.jsx'
-import { fetchAI } from '../utils/api.js'
+
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
 
 // Yapay zekadan dönen kelime türünü WordList sekmeleriyle tam eşleştiren güvenli filtreleyici
 const mapPartOfSpeech = (pos) => {
@@ -16,6 +24,37 @@ const mapPartOfSpeech = (pos) => {
   return 'Other'
 }
 
+async function fetchAI(prompt, expectJson = false) {
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson, maxTokens: 1500, apiKey: getUserApiKey() })
+  });
+  
+  const textRaw = await response.text();
+  let data;
+  try {
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (err) {
+    throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
+  }
+
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
+  }
+  if (expectJson) {
+    try {
+      let cleanJson = data.content.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const match = cleanJson.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+      if (match) cleanJson = match[0];
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      throw new Error('Yapay zeka eksik veya hatalı veri döndürdü.');
+    }
+  }
+  return data.content;
+}
 
 async function evaluateEssayWithAI(essay, topic, examType) {
   const prompt = `You are an official ${examType} examiner. Evaluate the following essay written by a B1-B2 level student. The essay topic was: '${topic}'. The student's essay is: '${essay}'.

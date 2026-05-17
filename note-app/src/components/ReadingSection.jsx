@@ -9,6 +9,13 @@ const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
 const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
+
 const buildPrompt = (text, level) => `You are an IELTS/TOEFL reading comprehension test creator. 
 
 Given the following text and proficiency level (${level}), create:
@@ -96,7 +103,7 @@ export default function ReadingSection({ updateReading }) {
       const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: buildPrompt(text, level), expectJson: true })
+        body: JSON.stringify({ prompt: buildPrompt(text, level), expectJson: true, apiKey: getUserApiKey() })
       });
       const data = await response.json();
       if (!response.ok) {

@@ -2,8 +2,40 @@ import { useEffect, useMemo, useState, useRef } from 'react'
 import shuffleArray from '../utils/shuffle.js'
 import SynonymQuiz from './SynonymQuiz.jsx'
 import { ChevronDown, Loader2 } from 'lucide-react'
-import { fetchAI, generateSpeechWithAI } from '../utils/api.js'
 
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
+
+async function fetchAI(prompt) {
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson: false, apiKey: getUserApiKey() })
+  });
+  
+  let data;
+  try {
+    const textRaw = await response.text();
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (e) {
+    if (!response.ok && (response.status === 502 || response.status === 504)) {
+      throw new Error('Arka plan sunucusuna bağlanılamadı. Lütfen "node server.js" ile sunucuyu başlattığınızdan emin olun.');
+    }
+    throw new Error('Sunucu geçersiz yanıt döndürdü');
+  }
+
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
+  }
+  return data.content;
+}
 
 function buildUnifiedDeck(targetWords, allWords) {
   const shuffledWords = shuffleArray(targetWords)
@@ -121,7 +153,15 @@ export default function QuizGame({ words }) {
         
         setAudioStatus(prev => ({ ...prev, [qId]: 'loading' }))
         try {
-          const blob = await generateSpeechWithAI(text);
+          let blob = null
+          
+          const res = await fetch(`${getBaseUrl()}/api/ai/speech`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, voice: 'alloy', apiKey: getUserApiKey() })
+          });
+          if (res.ok) { blob = await res.blob(); }
+
           if (blob) {
             const url = URL.createObjectURL(blob)
             preloadedAudio.current[qId] = url
@@ -153,7 +193,15 @@ export default function QuizGame({ words }) {
     try {
       let url = preloadedAudio.current[qId]
       if (!url) {
-        const blob = await generateSpeechWithAI(text).catch(() => null);
+        let blob = null
+        
+        const res = await fetch(`${getBaseUrl()}/api/ai/speech`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'alloy', apiKey: getUserApiKey() })
+        });
+        if (res.ok) { blob = await res.blob(); }
+
         if (blob && !url) {
           url = URL.createObjectURL(blob)
           preloadedAudio.current[qId] = url
@@ -279,16 +327,14 @@ Return ONLY a valid JSON object in this format (no markdown):
       {/* HEADER & DROPDOWN */}
       <div className="flex flex-col gap-4 rounded-3xl border border-slate-300 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between dark:bg-slate-900 dark:border-slate-600 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-indigo-500">Quiz Engine</p>
-          <h2 className="mt-1 text-2xl font-bold text-black dark:text-white eye-care:text-amber-950">
-            Interactive Testing
-          </h2>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em]" style={{ color: '#6366f1' }}>Quiz Engine</p>
+      <h2 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 eye-care:text-amber-950">Interactive Testing</h2>
         </div>
         
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex w-full min-w-[220px] items-center justify-between rounded-2xl border-2 border-slate-300 bg-white px-5 py-3.5 text-sm font-bold text-black transition hover:bg-slate-100 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 sm:w-auto dark:bg-black dark:border-slate-500 dark:text-white dark:hover:bg-slate-800 dark:focus:border-indigo-400 eye-care:bg-[#F4ECD8] eye-care:border-amber-200 eye-care:text-amber-950 eye-care:hover:bg-[#EAE0C8]"
+           className="flex w-full min-w-[220px] items-center justify-between rounded-2xl border-2 px-5 py-3.5 text-sm font-bold transition focus:ring-2 focus:ring-indigo-200 sm:w-auto border-slate-300 bg-white text-slate-900 hover:bg-slate-100 focus:border-indigo-500 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-700 eye-care:bg-[#F4ECD8] eye-care:border-amber-200 eye-care:text-amber-950 eye-care:hover:bg-[#EAE0C8]"
           >
             <span className="flex items-center gap-2">
               {MODES.find(m => m.id === quizMode)?.icon} {MODES.find(m => m.id === quizMode)?.label}
@@ -298,16 +344,17 @@ Return ONLY a valid JSON object in this format (no markdown):
           
           {isDropdownOpen && (
             <div className="absolute right-0 top-full mt-2 w-full min-w-[220px] z-50 overflow-hidden rounded-2xl border border-slate-300 bg-white py-2 shadow-xl animate-fade-in dark:bg-slate-900 dark:border-slate-600 dark:shadow-black/50 eye-care:bg-[#FDF6E3] eye-care:border-amber-200 eye-care:shadow-md">
-              {MODES.map((mode) => (
-                <button
-                  key={mode.id}
-                  onClick={() => { handleModeChange(mode.id); setIsDropdownOpen(false); }}
-                  className={`flex w-full items-center gap-3 px-5 py-3 text-left text-sm transition ${quizMode === mode.id ? 'bg-indigo-50 text-indigo-700 font-bold dark:bg-indigo-900/30 dark:text-indigo-300 eye-care:bg-[#EAE0C8] eye-care:text-amber-950' : 'font-bold text-black hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800 eye-care:text-amber-900 eye-care:hover:bg-[#F4ECD8]'}`}
-                >
-                  <span className="text-lg">{mode.icon}</span>
-                  {mode.label}
-                </button>
-              ))}
+            {MODES.map((mode) => (
+  <button
+    key={mode.id}
+    onClick={() => { handleModeChange(mode.id); setIsDropdownOpen(false); }}
+    className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm font-bold transition hover:bg-slate-100 dark:hover:bg-slate-700"
+    style={{ color: quizMode === mode.id ? '#4f46e5' : '#1e293b' }}
+  >
+    <span className="text-lg">{mode.icon}</span>
+    {mode.label}
+  </button>
+))}
             </div>
           )}
         </div>

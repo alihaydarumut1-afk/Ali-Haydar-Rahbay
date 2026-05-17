@@ -1,5 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Library, Layers, BrainCircuit, BookOpen, Mic, Headphones, BookMarked, PenTool, Sparkles, MonitorPlay, PanelLeftClose, PanelLeftOpen, AudioLines, ListTodo } from 'lucide-react'
+import { Home, Library, Layers, BrainCircuit, BookOpen, Mic, Headphones, BookMarked, PenTool, Sparkles, MonitorPlay, PanelLeftClose, PanelLeftOpen, AudioLines, ListTodo, LogOut } from 'lucide-react'
+import { signOut } from 'firebase/auth'
+import { auth } from '../firebase'
 
 const MENU_MAIN = [
   { path: '/', label: 'Dashboard', icon: Home, tourClass: 'tour-dashboard' },
@@ -28,6 +30,18 @@ const MENU_BOTTOM = [
 
 export default function Sidebar({ isCollapsed, toggleSidebar }) {
   const location = useLocation()
+  const user = auth.currentUser
+
+  const displayName = user?.displayName || 'Kullanıcı'
+  const email = user?.email || ''
+  const photoURL = user?.photoURL || null
+  const initials = displayName.charAt(0).toUpperCase()
+
+  const handleSignOut = async () => {
+    if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
+      await signOut(auth)
+    }
+  }
 
   const renderMenuItem = (item) => {
     const Icon = item.icon
@@ -47,9 +61,9 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
             : 'opacity-70 hover:bg-slate-500/10 hover:opacity-100'
         } ${item.tourClass || ''}`}
       >
-        <Icon 
-          size={18} 
-          strokeWidth={isActive ? 2.5 : 2} 
+        <Icon
+          size={18}
+          strokeWidth={isActive ? 2.5 : 2}
           className={`shrink-0 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}
         />
         {!isCollapsed && <span className="truncate">{item.label}</span>}
@@ -59,7 +73,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
 
   return (
     <aside className={`fixed left-0 top-0 z-[100] flex h-screen flex-col bg-[var(--bg-sidebar)] text-[var(--text-sidebar)] shadow-[4px_0_24px_rgba(0,0,0,0.05)] transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
-      {/* Logo Alanı */}
+      {/* Logo */}
       <div className={`flex h-24 shrink-0 items-center border-b border-current/10 ${isCollapsed ? 'justify-center px-0' : 'justify-between px-6'}`}>
         <Link to="/" className={`flex items-center gap-4 transition-transform hover:scale-105 ${isCollapsed ? 'justify-center' : ''}`}>
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-2xl font-black text-white shadow-lg shadow-[var(--accent)]/30">
@@ -74,7 +88,6 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         )}
       </div>
 
-      {/* Menü Genişletme */}
       {isCollapsed && (
         <div className="flex items-center justify-center border-b border-current/10 py-3">
           <button onClick={toggleSidebar} className="flex h-10 w-10 items-center justify-center rounded-lg text-inherit opacity-60 transition hover:bg-black/10 hover:opacity-100" title="Expand Menu">
@@ -83,7 +96,7 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
         </div>
       )}
 
-      {/* Navigasyon Linkleri */}
+      {/* Navigasyon */}
       <nav className={`hide-scrollbar flex flex-1 flex-col justify-evenly overflow-y-auto py-2 ${isCollapsed ? 'px-2' : 'px-3'}`}>
         {MENU_MAIN.map(renderMenuItem)}
         {MENU_READINGS.map(renderMenuItem)}
@@ -92,18 +105,32 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
       </nav>
 
       {/* Alt Profil Alanı */}
-      <div className={`shrink-0 border-t border-current/10 ${isCollapsed ? 'flex justify-center p-4' : 'p-6'}`}>
-        <div className={`flex cursor-pointer items-center opacity-80 transition-opacity hover:opacity-100 ${isCollapsed ? 'justify-center' : 'gap-3'}`} title={isCollapsed ? "Profile" : undefined}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-current/10 font-bold text-inherit">
-            S
-          </div>
+      <div className={`shrink-0 border-t border-current/10 ${isCollapsed ? 'flex flex-col items-center gap-2 p-3' : 'p-4'}`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
+          {photoURL ? (
+            <img src={photoURL} alt={displayName} className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-current/20" />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-current/10 font-bold text-inherit">
+              {initials}
+            </div>
+          )}
           {!isCollapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-inherit">Student</p>
-              <p className="truncate text-xs text-inherit opacity-70">Student Account</p>
+              <p className="truncate text-sm font-bold text-inherit">{displayName}</p>
+              <p className="truncate text-xs text-inherit opacity-70">{email}</p>
             </div>
           )}
         </div>
+
+        {/* Çıkış Butonu */}
+        <button
+          onClick={handleSignOut}
+          title="Çıkış Yap"
+          className={`mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold opacity-60 transition hover:bg-red-500/20 hover:opacity-100 hover:text-red-400 ${isCollapsed ? 'justify-center w-full' : 'w-full'}`}
+        >
+          <LogOut size={15} />
+          {!isCollapsed && <span>Çıkış Yap</span>}
+        </button>
       </div>
     </aside>
   )

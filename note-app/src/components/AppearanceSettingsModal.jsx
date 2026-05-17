@@ -108,6 +108,7 @@ export default function AppearanceSettingsModal({ isOpen, onClose, onSave, initi
       <div 
         className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] bg-slate-50 shadow-2xl ring-1 ring-slate-900/5 lg:flex-row"
         onClick={(e) => e.stopPropagation()}
+        data-modal
       >
         {/* Sol Panel - Ayarlar */}
         <div className="flex w-full flex-col lg:w-[60%] lg:border-r border-slate-200 bg-white">

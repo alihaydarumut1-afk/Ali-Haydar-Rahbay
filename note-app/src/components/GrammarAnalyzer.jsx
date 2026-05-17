@@ -56,9 +56,16 @@ export default function GrammarAnalyzer({ initialText, initialId, initialTitle, 
   const [editContent, setEditContent] = useState('')
   const [isFocusModeOpen, setIsFocusModeOpen] = useState(false)
   
-  const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+  const getBaseUrl = () => (typeof window !== 'undefined' && window.location.origin.includes('file://')) ? 'http://localhost:3000' : '';
 
   const currentItem = allItems.find(i => i.id === expandedId) || null
+
+  const getUserApiKey = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('USER_API_KEY') || '';
+    }
+    return '';
+  };
 
   const sentences = useMemo(() => {
     if (!currentItem) return []
@@ -98,7 +105,7 @@ Analiz edilecek metin:
       const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, expectJson: true })
+        body: JSON.stringify({ prompt, expectJson: true, apiKey: getUserApiKey() })
       });
       const data = await response.json();
       if (!response.ok) {

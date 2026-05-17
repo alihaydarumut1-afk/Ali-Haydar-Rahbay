@@ -5,13 +5,31 @@ import useWords from '../hooks/useWords.js'
 
 const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
+
 async function fetchAI(prompt) {
   const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, expectJson: false })
+    body: JSON.stringify({ prompt, expectJson: false, apiKey: getUserApiKey() })
   });
-  const data = await response.json();
+
+  let data;
+  try {
+    const textRaw = await response.text();
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (e) {
+    if (!response.ok && (response.status === 502 || response.status === 504)) {
+      throw new Error('Arka plan sunucusuna bağlanılamadı. Lütfen "node server.js" ile sunucuyu başlattığınızdan emin olun.');
+    }
+    throw new Error('Sunucu geçersiz yanıt döndürdü');
+  }
+
   if (!response.ok) {
     if (response.status === 429) alert(data.error);
     throw new Error(data.error || 'AI Hatası');
@@ -28,9 +46,20 @@ async function transcribeAudioWithAI(blob) {
   const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type })
+    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type, apiKey: getUserApiKey() })
   })
-  const data = await response.json()
+
+  let data;
+  try {
+    const textRaw = await response.text();
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (e) {
+    if (!response.ok && (response.status === 502 || response.status === 504)) {
+      throw new Error('Arka plan sunucusuna bağlanılamadı. Lütfen "node server.js" ile sunucuyu başlattığınızdan emin olun.');
+    }
+    throw new Error('Sunucu geçersiz yanıt döndürdü');
+  }
+
   if (!response.ok) {
     if (response.status === 429) alert(data.error);
     throw new Error(data.error || 'Transcription Hatası');

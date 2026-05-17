@@ -1,4 +1,3 @@
-import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { YoutubeTranscript } from 'youtube-transcript';
@@ -7,8 +6,6 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Eğer projede import hatası alırsanız, bu import satırlarını şu şekilde değiştirin:
 // const express = require('express');
@@ -39,28 +36,11 @@ const checkQuota = (req, res, next) => {
   next();
 };
 
-const getAIKey = () => {
-  // 1. Önce Render Panelindeki "Environment" (Çevre Değişkeni) kontrol edilir. En güvenli yöntem budur!
-  if (process.env.AI_KEY) {
-    return process.env.AI_KEY.trim();
-  }
-
-  // Render paneliyle uğraşmamak için YENİ şifreni buraya iki parça halinde yapıştır:
-  // DİKKAT: Eski şifren iptal oldu, OpenAI'dan yepyeni bir şifre (API Key) almalısın!
-  const part1 = 'sk-proj-...YENİ_ŞİFRENİN_İLK_YARISI...';
-  const part2 = '...YENİ_ŞİFRENİN_KAYAN_İKİNCİ_YARISI...';
-  
-  const activeKey = part1 + part2;
-  if (activeKey.includes('YENİ_ŞİFRENİN')) {
-    throw new Error('API Şifresi Eksik! Lütfen Render panelinden "Environment" sekmesine AI_KEY ekleyin.');
-  }
-  return activeKey.trim();
-};
-
 app.post('/api/ai/chat', checkQuota, async (req, res) => {
   try {
-    const { prompt, expectJson, maxTokens } = req.body;
-    const key = getAIKey();
+    const { prompt, expectJson, maxTokens, apiKey } = req.body;
+    const key = apiKey;
+    if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
     
     let content = '';
     if (key.startsWith('sk-')) {
@@ -75,9 +55,7 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
           ...(expectJson ? { response_format: { type: 'json_object' } } : {})
         })
       });
-      const textRaw = await response.text();
-      let data;
-      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`OpenAI geçersiz/boş yanıt döndürdü (${response.status})`); }
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || 'OpenAI API Hatası');
       content = data.choices[0].message.content;
     } else {
@@ -94,11 +72,9 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
           }
         })
       });
-      const textRaw = await response.text();
-      let data;
-      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`Gemini geçersiz/boş yanıt döndürdü (${response.status})`); }
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || 'Gemini API Hatası');
-      content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      content = data.candidates[0].content.parts[0].text;
     }
     res.json({ content });
   } catch (err) {
@@ -108,8 +84,9 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
 
 app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
   try {
-    const { audioBase64, mimeType } = req.body;
-    const key = getAIKey();
+    const { audioBase64, mimeType, apiKey } = req.body;
+    const key = apiKey;
+    if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
     
     let text = '';
     if (key.startsWith('sk-')) {
@@ -126,9 +103,7 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
         headers: { 'Authorization': `Bearer ${key}` },
         body: formData
       });
-      const textRaw = await response.text();
-      let data;
-      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`OpenAI geçersiz/boş yanıt döndürdü (${response.status})`); }
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || 'OpenAI Transcription Hatası');
       text = data.text.trim();
     } else {
@@ -146,9 +121,7 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
           generationConfig: { temperature: 0.1 }
         })
       });
-      const textRaw = await response.text();
-      let data;
-      try { data = textRaw ? JSON.parse(textRaw) : {}; } catch(e) { throw new Error(`Gemini geçersiz/boş yanıt döndürdü (${response.status})`); }
+      const data = await response.json();
       if (!response.ok) throw new Error(data.error?.message || 'Gemini Transcription Hatası');
       text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     }
@@ -160,8 +133,9 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
 
 app.post('/api/ai/speech', checkQuota, async (req, res) => {
   try {
-    const { text, voice } = req.body;
-    const key = getAIKey();
+    const { text, voice, apiKey } = req.body;
+    const key = apiKey;
+    if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
 
     if (key.startsWith('sk-')) {
       const response = await fetch('https://api.openai.com/v1/audio/speech', {

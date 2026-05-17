@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { fetchAI, transcribeAudioWithAI, generateSpeechWithAI } from '../utils/api.js'
+
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
 // --- KALICI BELLEK (IndexedDB) YÖNETİMİ ---
 const DB_NAME = 'PronunciationDB'
@@ -27,6 +28,60 @@ const getAudioFromDB = async (key) => {
       req.onerror = () => resolve(null)
     })
   } catch (e) { return null }
+}
+
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
+
+// Yardımcı fonksiyon: API İsteği
+async function fetchAI(prompt, expectJson = false) {
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson, maxTokens: expectJson ? 8000 : 1500, apiKey: getUserApiKey() })
+  });
+
+  let data;
+  try {
+    const textRaw = await response.text();
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (e) {
+    if (!response.ok && (response.status === 502 || response.status === 504)) {
+      throw new Error('Arka plan sunucusuna bağlanılamadı. Lütfen "node server.js" ile sunucuyu başlattığınızdan emin olun.');
+    }
+    throw new Error('Sunucu geçersiz yanıt döndürdü');
+  }
+
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI Hatası');
+  }
+  return expectJson ? data.content : data.content;
+}
+
+// Yeni Yardımcı Fonksiyon: Audio Transcription via AI (Whisper / Gemini)
+async function transcribeAudioWithAI(blob) {
+  const base64Audio = await new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result.split(',')[1])
+    reader.readAsDataURL(blob)
+  })
+  const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type, apiKey: getUserApiKey() })
+  })
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'Transcription Hatası');
+  }
+  return data.text;
 }
 
 const normalize = (str) => {
@@ -200,10 +255,14 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
       if (cachedBlob) {
         blobToPlay = cachedBlob
       } else {
-        try {
-          blobToPlay = await generateSpeechWithAI(text);
-          await saveAudioToDB(cacheKey, blobToPlay);
-        } catch(err) { console.warn('Speech error', err) }
+        const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'alloy' })
+        })
+        if (response.ok) { blobToPlay = await response.blob(); await saveAudioToDB(cacheKey, blobToPlay); }
+        else if (response.status === 429) { const err = await response.json(); alert(err.error); }
+
       if (!blobToPlay) {
           const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en-US&q=${encodeURIComponent(text)}`
         const res = await fetch(googleUrl)
@@ -727,11 +786,15 @@ export default function KnowledgeValidationEngine({ words = [], allWords = [], o
             >
               {isEvaluating ? (
                 <>
-                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                  AI Yargılıyor...
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" 
+                  cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  AI Değerlendiriyor...
                 </>
               ) : (
-                'Cevapla'
+                <>
+                  Cevapla
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+                </>
               )}
             </button>
           )}

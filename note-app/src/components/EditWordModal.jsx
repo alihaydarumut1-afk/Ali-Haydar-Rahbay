@@ -1,20 +1,12 @@
 import { useState, useEffect } from 'react'
+import { fetchAI } from '../utils/api'
 
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
-
-async function fetchAI(prompt) {
-  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, expectJson: true })
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    if (response.status === 429) alert(data.error);
-    throw new Error(data.error || 'AI Hatası');
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
   }
-  return JSON.parse(data.content);
-}
+  return '';
+};
 
 export default function EditWordModal({ isOpen, onClose, word, onUpdate }) {
   const [english, setEnglish] = useState('')
@@ -39,8 +31,8 @@ export default function EditWordModal({ isOpen, onClose, word, onUpdate }) {
     setIsAutoFilling(true)
     try {
       const prompt = `Analyze the English word "${english}". Return ONLY valid JSON: {"type": "Noun|Verb|Adjective|Phrasal Verb|Other", "meaning": "Turkish meaning", "example": "An English example sentence", "collocation": "A common collocation (e.g. make a mistake)"}`
-      const enriched = await fetchAI(prompt)
-      
+      const enriched = await fetchAI(prompt, { expectJson: true })
+
       let parsedType = enriched.type || 'Other'
       const lower = String(parsedType).toLowerCase()
       if (lower.includes('phrasal')) parsedType = 'Phrasal Verb'
@@ -125,15 +117,15 @@ export default function EditWordModal({ isOpen, onClose, word, onUpdate }) {
             </select>
           </div>
           <div>
-        <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 eye-care:text-[#5C4B37]">Collocation (Opsiyonel)</label>
-        <input
-          type="text"
-          value={collocation}
-          onChange={(e) => setCollocation(e.target.value)}
-          className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100 dark:focus:ring-indigo-900 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8] eye-care:text-[#3B2F2F] placeholder:text-zinc-400 dark:placeholder:text-zinc-500 eye-care:placeholder:text-[#8C7A6B]"
-        />
-      </div>
-      <div>
+            <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 eye-care:text-[#5C4B37]">Collocation (Opsiyonel)</label>
+            <input
+              type="text"
+              value={collocation}
+              onChange={(e) => setCollocation(e.target.value)}
+              className="mt-1 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:bg-zinc-900 dark:border-zinc-700 dark:text-zinc-100 dark:focus:ring-indigo-900 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8] eye-care:text-[#3B2F2F] placeholder:text-zinc-400 dark:placeholder:text-zinc-500 eye-care:placeholder:text-[#8C7A6B]"
+            />
+          </div>
+          <div>
             <label className="block text-sm font-semibold text-zinc-600 dark:text-zinc-300 eye-care:text-[#5C4B37]">Örnek Cümle</label>
             <textarea
               value={sentence}
@@ -152,7 +144,7 @@ export default function EditWordModal({ isOpen, onClose, word, onUpdate }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              className="flex-1 rounded-2xl border border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 eye-care:border-[#EAE0C8] eye-care:text-[#5C4B37]"
             >
               İptal
             </button>

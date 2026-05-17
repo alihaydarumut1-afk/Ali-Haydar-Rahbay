@@ -137,10 +137,12 @@ export default function ThemeDashboardModal({ isOpen, onClose, onSave, onPreview
       className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm transition-all sm:p-6"
       onClick={onClose}
     >
-      <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] bg-slate-50 shadow-2xl ring-1 ring-slate-900/5"
-        onClick={(e) => e.stopPropagation()}
-      >
+   <div
+  className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] shadow-2xl ring-1 ring-slate-900/5"
+  style={{ backgroundColor: '#ffffff' }}
+  onClick={(e) => e.stopPropagation()}
+  data-modal
+>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-5">
           <div>

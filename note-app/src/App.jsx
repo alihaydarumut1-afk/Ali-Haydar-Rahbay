@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { auth } from './firebase'
+import Login from './components/Login.jsx'
 import MainLayout from './components/MainLayout.jsx'
 import FlashcardGame from './components/FlashcardGame.jsx'
 import GrammarSection from './components/GrammarSection.jsx'
@@ -23,13 +26,12 @@ import DashboardGrid from './components/DashboardGrid.jsx'
 import TodoList from './components/TodoList.jsx'
 
 const APPEARANCE_STORAGE_KEY = 'appAppearanceSettings'
-
 const THEME_STORAGE_KEY = 'appThemeSettings'
 const defaultTheme = { theme: 'light', bg: '#f8f9fa', card: '#ffffff', accent: '#1a73e8', secondary: '#fbbc04', brightness: 1 }
 
 const defaultAppearance = {
   colors: {
-    Sidebar: '#0f172a', // Yeni şık varsayılan menü rengi
+    Sidebar: '#0f172a',
     Noun: '#f1f5f9',
     'Noun Header': '#e2e8f0',
     Verb: '#e0f2fe',
@@ -48,6 +50,7 @@ const defaultAppearance = {
   }
 }
 
+// ✅ Eşik 128→160: açık arka planlarda koyu metin daha erken seçilir
 function getContrastColor(hexColor) {
   if (!hexColor) return '#0f172a'
   const hex = hexColor.replace('#', '')
@@ -55,10 +58,9 @@ function getContrastColor(hexColor) {
   const g = parseInt(hex.substring(2, 4), 16)
   const b = parseInt(hex.substring(4, 6), 16)
   const yiq = (r * 299 + g * 587 + b * 114) / 1000
-  return yiq >= 128 ? '#0f172a' : '#ffffff'
+  return yiq >= 160 ? '#0f172a' : '#f8fafc'  // koyu→açık için saf beyaz yerine off-white
 }
 
-// Creative Lab içinden Voice Notes'a geçişi sağlayan sarmalayıcı bileşen
 function CreativeLabWrapper({ words }) {
   const navigate = useNavigate()
   return <CreativeLab words={words} onPractice={() => navigate('/voice')} />
@@ -67,20 +69,19 @@ function CreativeLabWrapper({ words }) {
 export default function App() {
   const { words, addWord, updateWord, removeWord } = useWords()
   const { readings, addReading, updateReading } = useReadings()
-  
-  // Appearance & Dropdown Durumları
+
+  const [user, setUser] = useState(undefined)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAppearanceModalOpen, setIsAppearanceModalOpen] = useState(false)
-  
+
   const [isBlurEnabled, setIsBlurEnabled] = useState(() => {
     if (typeof window === 'undefined') return true
     try {
       const saved = localStorage.getItem('noteapp_blur_enabled')
       return saved !== null ? JSON.parse(saved) : true
-    } catch {
-      return true
-    }
+    } catch { return true }
   })
+
   const [isThemeModalOpen, setIsThemeModalOpen] = useState(false)
   const [previewTheme, setPreviewTheme] = useState(null)
   const [themeSettings, setThemeSettings] = useState(() => {
@@ -88,20 +89,17 @@ export default function App() {
     try {
       const saved = localStorage.getItem(THEME_STORAGE_KEY)
       const parsed = saved ? JSON.parse(saved) : defaultTheme
-      if (!parsed.secondary) parsed.secondary = defaultTheme.secondary // Geriye dönük uyumluluk
+      if (!parsed.secondary) parsed.secondary = defaultTheme.secondary
       return parsed
-    } catch {
-      return defaultTheme
-    }
+    } catch { return defaultTheme }
   })
+
   const [appearance, setAppearance] = useState(() => {
     if (typeof window === 'undefined') return defaultAppearance
     try {
       const saved = localStorage.getItem(APPEARANCE_STORAGE_KEY)
       const parsed = saved ? JSON.parse(saved) : defaultAppearance
-      if (parsed.colors && !parsed.colors.Sidebar) {
-        parsed.colors.Sidebar = '#0f172a' // Eski kullanıcılar için geriye dönük uyumluluk
-      }
+      if (parsed.colors && !parsed.colors.Sidebar) parsed.colors.Sidebar = '#0f172a'
       if (parsed.colors && !parsed.colors['Noun Header']) {
         parsed.colors['Noun Header'] = '#e2e8f0'
         parsed.colors['Verb Header'] = '#bae6fd'
@@ -109,35 +107,25 @@ export default function App() {
         parsed.colors['Phrasal Verb Header'] = '#fed7aa'
       }
       return parsed
-    } catch {
-      return defaultAppearance
-    }
+    } catch { return defaultAppearance }
   })
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+    })
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
     if (typeof window === 'undefined') return
-    try {
-      localStorage.setItem(
-        APPEARANCE_STORAGE_KEY,
-        JSON.stringify(appearance),
-      )
-    } catch {
-      // ignore localStorage errors
-    }
-    try {
-      localStorage.setItem(
-        THEME_STORAGE_KEY,
-        JSON.stringify(themeSettings),
-      )
-    } catch {}
+    try { localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearance)) } catch {}
+    try { localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(themeSettings)) } catch {}
   }, [appearance, themeSettings])
 
   const activeTheme = previewTheme || themeSettings
+  const baseIsDark = activeTheme.baseTheme === 'dark' || getContrastColor(activeTheme.bg) === '#f8fafc'
 
-  // Temanın koyu mu yoksa açık mı olduğunu otomatik anlayan akıllı sistem
-  const baseIsDark = activeTheme.baseTheme === 'dark' || getContrastColor(activeTheme.bg) === '#ffffff'
-
-  // CSS Variable'ları oluşturma
   const styleVars = {
     '--font-main': appearance.typography.fontFamily,
     '--base-size': `${appearance.typography.fontSize}px`,
@@ -145,10 +133,11 @@ export default function App() {
     '--bg-main': activeTheme.bg,
     '--bg-sidebar': appearance.colors?.['Sidebar'] || defaultAppearance.colors['Sidebar'],
     '--text-sidebar': getContrastColor(appearance.colors?.['Sidebar'] || defaultAppearance.colors['Sidebar']),
-    '--text-main': baseIsDark ? '#f8fafc' : '#0f172a',
-    '--text-muted': baseIsDark ? '#94a3b8' : '#64748b',
-    '--border-color': baseIsDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
-    '--hover-bg': baseIsDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+    // ✅ Kontrast artırıldı: koyu mod için daha parlak beyaz, açık mod için daha koyu siyah
+    '--text-main': baseIsDark ? '#f1f5f9' : '#0f172a',
+    '--text-muted': baseIsDark ? '#cbd5e1' : '#475569',  // ✅ eskiden 94a3b8/64748b → daha okunaklı
+    '--border-color': baseIsDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
+    '--hover-bg': baseIsDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.04)',
     '--bg-noun': appearance.colors['Noun'] || defaultAppearance.colors['Noun'],
     '--text-noun': getContrastColor(appearance.colors['Noun'] || defaultAppearance.colors['Noun']),
     '--bg-noun-header': appearance.colors['Noun Header'] || defaultAppearance.colors['Noun Header'],
@@ -168,17 +157,8 @@ export default function App() {
     '--secondary': activeTheme.secondary || '#fbbc04',
   }
 
-  const handleSaveAppearance = (draft) => {
-    setAppearance(draft)
-    setIsAppearanceModalOpen(false)
-  }
-
-  const handleSaveTheme = (draft) => {
-    setThemeSettings(draft)
-    setIsThemeModalOpen(false)
-    setPreviewTheme(null)
-  }
-  
+  const handleSaveAppearance = (draft) => { setAppearance(draft); setIsAppearanceModalOpen(false) }
+  const handleSaveTheme = (draft) => { setThemeSettings(draft); setIsThemeModalOpen(false); setPreviewTheme(null) }
   const toggleBlur = () => {
     setIsBlurEnabled(prev => {
       const next = !prev
@@ -188,7 +168,6 @@ export default function App() {
     })
   }
 
-  // Her sayfanın üst kısmında dinamik olarak render edilecek Başlık ve Tema Menüsü
   const renderHeaderAndThemeMenu = (title, isDashboard = false) => (
     <>
       {isDashboard && <PersonalizedHeader />}
@@ -198,37 +177,33 @@ export default function App() {
             {isDashboard ? 'Dashboard' : title}
           </h2>
         </div>
-
         <div className="relative z-50 flex w-full md:w-auto items-center justify-center md:justify-end gap-3">
-          {/* 3 Nokta Menüsü (Gelişmiş Görünüm Ayarları) */}
           {isDashboard && (
             <div className="relative">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="tour-settings flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:ring-2 focus:ring-slate-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:focus:ring-zinc-600 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8] eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]"
+                className="tour-settings flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
                 title="Gelişmiş Görünüm Ayarları"
               >
                 <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
                 </svg>
               </button>
-
               {isMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl border border-slate-100 bg-white py-2 shadow-xl ring-1 ring-black/5 z-50 dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
-                    <button onClick={toggleBlur} className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-700 eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]">
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg">👁️</span>
-                        Buğulu Çeviri
-                      </div>
+                  <div className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl border border-slate-100 bg-white py-2 shadow-xl z-50">
+                    <button onClick={toggleBlur} className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                      <div className="flex items-center gap-3"><span className="text-lg">👁️</span>Buğulu Çeviri</div>
                       <div className={`relative flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${isBlurEnabled ? 'bg-indigo-500' : 'bg-slate-300'}`}>
                         <div className={`absolute h-4 w-4 rounded-full bg-white transition-transform ${isBlurEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
                       </div>
                     </button>
-                    <div className="my-1 border-t border-slate-100 dark:border-zinc-700 eye-care:border-[#EAE0C8]"></div>
-                    <button onClick={() => { setIsThemeModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-700 eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]"><span className="text-lg">🎨</span>Tema Ayarları</button>
-                    <button onClick={() => { setIsAppearanceModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:text-zinc-200 dark:hover:bg-zinc-700 eye-care:text-[#3B2F2F] eye-care:hover:bg-[#F4EAD5]"><span className="text-lg">✨</span>Gelişmiş Görünüm</button>
+                    <div className="my-1 border-t border-slate-100"></div>
+                    <button onClick={() => { setIsThemeModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><span className="text-lg">🎨</span>Tema Ayarları</button>
+                    <button onClick={() => { setIsAppearanceModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><span className="text-lg">✨</span>Gelişmiş Görünüm</button>
+                    <div className="my-1 border-t border-slate-100"></div>
+                    <button onClick={() => signOut(auth)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50"><span className="text-lg">🚪</span>Çıkış Yap</button>
                   </div>
                 </>
               )}
@@ -239,44 +214,52 @@ export default function App() {
     </>
   )
 
+  if (user === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-zinc-700 border-t-white"></div>
+      </div>
+    )
+  }
+
+  if (user === null) {
+    return <Login />
+  }
+
   return (
-      <HashRouter>
-        <div className="min-h-screen overflow-x-hidden transition-colors duration-300" style={{ ...styleVars, fontSize: 'var(--base-size)', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', '--card-bg': activeTheme.card, '--accent': activeTheme.accent }}>
-
-        {/* Parlaklık (Brightness) Katmanı: CSS filter özelliği fare okunu (position:fixed) bozduğu için katman olarak eklendi */}
+    <HashRouter>
+      <div className="min-h-screen overflow-x-hidden transition-colors duration-300" style={{ ...styleVars, fontSize: 'var(--base-size)', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', '--card-bg': activeTheme.card, '--accent': activeTheme.accent }}>
         {activeTheme.brightness && activeTheme.brightness !== 1 && (
-          <div 
-            className="pointer-events-none fixed inset-0 z-[99999] transition-colors duration-300" 
-            style={{ 
-              backgroundColor: activeTheme.brightness < 1 
-                ? `rgba(0, 0, 0, ${1 - activeTheme.brightness})` 
-                : `rgba(255, 255, 255, ${(activeTheme.brightness - 1) * 0.5})` 
-            }} 
-          />
+          <div className="pointer-events-none fixed inset-0 z-[99999] transition-colors duration-300" style={{ backgroundColor: activeTheme.brightness < 1 ? `rgba(0, 0, 0, ${1 - activeTheme.brightness})` : `rgba(255, 255, 255, ${(activeTheme.brightness - 1) * 0.5})` }} />
         )}
-
         <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
-        * { font-family: var(--font-main) !important; }
-        
-        /* Akıllı Global Tema Ezmeleri (Özel Renklerinizi Korur) */
-        .bg-white { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
-        .bg-slate-50, .bg-zinc-50, .bg-slate-100, .bg-zinc-100 { background-color: var(--hover-bg) !important; border-color: var(--border-color) !important; }
-        .text-slate-950, .text-slate-900, .text-slate-800, .text-zinc-900, .text-zinc-800 { color: var(--text-main) !important; }
-        .text-slate-700, .text-slate-600, .text-slate-500, .text-zinc-500, .text-zinc-400 { color: var(--text-muted) !important; }
-        .border-slate-200, .border-slate-100, .border-zinc-200 { border-color: var(--border-color) !important; }
-        
-        /* Standart Siyah Butonları Tema Vurgusuna Çevir */
-        .bg-slate-950, .bg-slate-900, .bg-zinc-900 { background-color: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; }
-        
-        /* Pürüzsüz Sayfa Geçiş Animasyonu (Premium Feel) */
-        @keyframes pageFadeIn {
-          from { opacity: 0; transform: translateY(12px) scale(0.995); }
-          to { opacity: 1; transform: none; }
-        }
-        .page-transition { animation: pageFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-      `}} />
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
+  * { font-family: var(--font-main) !important; }
 
+  /* Modal içindeki elementleri override'dan muaf tut */
+  [data-modal] .bg-white { background-color: #ffffff !important; }
+  [data-modal] .bg-slate-50 { background-color: #f8fafc !important; }
+  [data-modal] .bg-slate-100 { background-color: #f1f5f9 !important; }
+  [data-modal] .text-slate-900, [data-modal] .text-slate-800 { color: #0f172a !important; }
+  [data-modal] .text-slate-700, [data-modal] .text-slate-600 { color: #334155 !important; }
+  [data-modal] .text-slate-500, [data-modal] .text-slate-400 { color: #64748b !important; }
+  [data-modal] .border-slate-200, [data-modal] .border-slate-100 { border-color: #e2e8f0 !important; }
+
+  /* Normal sayfa override'ları */
+  .bg-white { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
+  .bg-slate-50, .bg-zinc-50, .bg-slate-100, .bg-zinc-100 { background-color: var(--hover-bg) !important; border-color: var(--border-color) !important; }
+  .text-slate-950, .text-slate-900, .text-slate-800, .text-zinc-900, .text-zinc-800 { color: var(--text-main) !important; }
+  .text-slate-700, .text-slate-600, .text-slate-500, .text-zinc-600, .text-zinc-500, .text-zinc-400 { color: var(--text-muted) !important; }
+  .border-slate-200, .border-slate-100, .border-zinc-200 { border-color: var(--border-color) !important; }
+  .bg-slate-950, .bg-slate-900, .bg-zinc-900 { background-color: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; }
+
+  /* Placeholder ve input renkleri */
+  ::placeholder { color: #6b7280 !important; opacity: 1 !important; }
+  input, textarea, select { color: var(--text-main) !important; }
+
+  @keyframes pageFadeIn { from { opacity: 0; transform: translateY(12px) scale(0.995); } to { opacity: 1; transform: none; } }
+  .page-transition { animation: pageFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+`}} />
         <Routes>
           <Route element={<MainLayout />}>
             <Route path="/" element={<>{renderHeaderAndThemeMenu('Dashboard', true)}<DashboardGrid /></>} />
@@ -294,11 +277,10 @@ export default function App() {
             <Route path="/immersion" element={<>{renderHeaderAndThemeMenu('Media Lab')}<ImmersionStudio /></>} />
           </Route>
         </Routes>
-        
         <AppearanceSettingsModal isOpen={isAppearanceModalOpen} onClose={() => setIsAppearanceModalOpen(false)} onSave={handleSaveAppearance} initialSettings={appearance} />
         <ThemeDashboardModal isOpen={isThemeModalOpen} onClose={() => { setIsThemeModalOpen(false); setPreviewTheme(null) }} onSave={handleSaveTheme} onPreview={setPreviewTheme} initialSettings={themeSettings} />
         <TextSelectionTranslator onAddWord={addWord} />
-        </div>
-      </HashRouter>
+      </div>
+    </HashRouter>
   )
 }

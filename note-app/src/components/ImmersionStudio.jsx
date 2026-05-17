@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { PenTool, X } from 'lucide-react'
 import useWords from '../hooks/useWords.js'
-import { fetchAI } from '../utils/api.js'
 
 const formatUrl = (url) => {
   if (!url) return "";
@@ -15,6 +14,66 @@ const getYouTubeId = (url) => {
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 };
+const getBaseUrl = () => import.meta.env.VITE_API_URL || 'http://localhost:3000'; 
+
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
+
+async function fetchAI(prompt, expectJson = false) {
+  const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, expectJson, maxTokens: expectJson ? 8000 : 1500, apiKey: getUserApiKey() })
+  });
+  
+  const textRaw = await response.text();
+  let data;
+  try {
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (err) {
+    if (!response.ok && (response.status === 502 || response.status === 504)) {
+      throw new Error('Arka plan sunucusuna bağlanılamadı. Lütfen "node server.js" ile sunucuyu başlattığınızdan emin olun.');
+    }
+    throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
+  }
+
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'AI hatası');
+  }
+
+  return data.content;
+}
+
+function parseAIJson(content) {
+  let jsonText = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const match = jsonText.match(/(\{[\s\S]*\}|\[[\s\S]*\])/);
+  if (match) {
+    jsonText = match[0];
+  }
+  try {
+    return JSON.parse(jsonText);
+  } catch (e) {
+    throw new Error('Yapay zeka eksik veri döndürdü, lütfen tekrar deneyin.');
+  }
+}
+
+export default function ImmersionStudio() {
+  const { words = [], addWord } = useWords() || {}
+  // 1. Temiz State Mimarisi
+  const [inputValue, setInputValue] = useState('')
+  const [activeUrl, setActiveUrl] = useState('')
+  const [isMounted, setIsMounted] = useState(false)
+  
+  // Dil Laboratuvarı Sağ Panel State'leri
+  const [rightTab, setRightTab] = useState('transcript') // transcript, grammar, quiz
+  const [currentTime, setCurrentTime] = useState(0) // Senkronizasyon Motoru State'i
+  const [selectedAnalysis, setSelectedAnalysis] = useState(null) // Bağlamsal AI Analiz State'i
+  const [selectedSentenceAnalysis, setSelectedSentenceAnalysis] = useState(null) // Uzman Cümle Analizi State'i
   
   // AI Veri State'leri
   const [transcriptData, setTranscriptData] = useState([])
@@ -324,8 +383,8 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
                 alert('Lütfen önce geçerli bir URL girin');
               }
             }}
-            className="whitespace-nowrap rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-800/50 eye-care:bg-indigo-50/50"
-          >
+className="whitespace-nowrap rounded-2xl border px-6 py-3 text-sm font-semibold transition hover:opacity-90"
+style={{ backgroundColor: '#eef2ff', color: '#4338ca', borderColor: '#c7d2fe' }}          >
             📺 Mini Pencerede Aç
           </button>
         </div>
@@ -369,8 +428,24 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
           
           {/* Tabs Header */}
           <div className="flex border-b border-zinc-200 bg-zinc-50/50 dark:border-zinc-700 dark:bg-zinc-900/50 eye-care:border-[#EAE0C8] eye-care:bg-[#FDF6E3]">
-            <button onClick={() => setRightTab('transcript')} className={`flex-1 py-4 text-sm font-bold transition-colors ${rightTab === 'transcript' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white dark:bg-zinc-800 dark:text-indigo-400 eye-care:bg-[#F4EAD5]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 eye-care:text-amber-800/70 eye-care:hover:text-amber-950 eye-care:hover:bg-[#EAE0C8]'}`}>Transkript</button>
-            <button onClick={() => setRightTab('quiz')} className={`flex-1 py-4 text-sm font-bold transition-colors ${rightTab === 'quiz' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white dark:bg-zinc-800 dark:text-indigo-400 eye-care:bg-[#F4EAD5]' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:text-zinc-400 dark:hover:text-zinc-200 dark:hover:bg-zinc-800 eye-care:text-amber-800/70 eye-care:hover:text-amber-950 eye-care:hover:bg-[#EAE0C8]'}`}>AI Quiz & Kelimeler</button>
+            <button onClick={() => setRightTab('transcript')}
+  className="flex-1 py-4 text-sm font-bold transition-colors"
+  style={rightTab === 'transcript'
+    ? { borderBottom: '2px solid #4f46e5', color: '#4f46e5' }
+    : { color: '#6b7280' }
+  }
+>
+  Transkript
+</button>
+<button onClick={() => setRightTab('quiz')}
+  className="flex-1 py-4 text-sm font-bold transition-colors"
+  style={rightTab === 'quiz'
+    ? { borderBottom: '2px solid #4f46e5', color: '#4f46e5' }
+    : { color: '#6b7280' }
+  }
+>
+  AI Quiz & Kelimeler
+</button>
           </div>
           
           {/* Tab Contents */}

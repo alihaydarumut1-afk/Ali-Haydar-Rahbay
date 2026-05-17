@@ -3,6 +3,13 @@ import { Volume2, Loader2 } from 'lucide-react'
 
 const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
 
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
+
 export default function PronunciationButton({ text, lang = 'en-US' }) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -48,7 +55,7 @@ export default function PronunciationButton({ text, lang = 'en-US' }) {
         const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, voice: lang === 'en-GB' ? 'onyx' : 'alloy' })
+          body: JSON.stringify({ text, voice: lang === 'en-GB' ? 'onyx' : 'alloy', apiKey: getUserApiKey() })
         });
         if (response.ok) {
           blobToPlay = await response.blob();

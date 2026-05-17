@@ -1,7 +1,87 @@
 import { useState, useEffect, useRef } from 'react'
 import { Bot, Mic, Square, Save, Trash2, RotateCcw, Plus, User } from 'lucide-react'
 import useWords from '../hooks/useWords.js'
-import { fetchAI, transcribeAudioWithAI, generateSpeechWithAI } from '../utils/api.js'
+
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
+
+// Yapay Zeka İstek Motoru (Hem Metin Hem JSON formatı için)
+async function fetchAI(prompt, expectJson = false, maxTokensOverride = null) {
+  try {
+    const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, expectJson, maxTokens: maxTokensOverride, apiKey: getUserApiKey() })
+    });
+    
+    const textRaw = await response.text();
+    let data;
+    try {
+      data = textRaw ? JSON.parse(textRaw) : {};
+    } catch (err) {
+      if (!response.ok && (response.status === 502 || response.status === 504)) {
+        throw new Error('Arka plan sunucusuna bağlanılamadı. Lütfen "node server.js" ile sunucuyu başlattığınızdan emin olun.');
+      }
+      throw new Error('Sunucu boş veya geçersiz yanıt döndürdü');
+    }
+
+    if (!response.ok) {
+      if (response.status === 429) alert(data.error);
+      throw new Error(data.error || 'AI Hatası');
+    }
+    if (expectJson) {
+      try {
+        let cleanJson = data.content.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const match = cleanJson.match(/\[[\s\S]*\]|\{[\s\S]*\}/);
+        if (match) cleanJson = match[0];
+        return JSON.parse(cleanJson);
+      } catch(e) {
+        throw new Error('Yapay zeka eksik veri döndürdü.');
+      }
+    }
+    return data.content;
+  } catch (err) {
+    console.error(err)
+    throw err
+  }
+}
+
+// Ses dosyasını (Blob) Yapay Zeka ile Metne Çevirme
+async function transcribeAudioWithAI(blob) {
+  const base64Audio = await new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(reader.result.split(',')[1])
+    reader.readAsDataURL(blob)
+  })
+  const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type, apiKey: getUserApiKey() })
+  })
+
+  let data;
+  try {
+    const textRaw = await response.text();
+    data = textRaw ? JSON.parse(textRaw) : {};
+  } catch (e) {
+    if (!response.ok && (response.status === 502 || response.status === 504)) {
+      throw new Error('Arka plan sunucusuna bağlanılamadı. Lütfen "node server.js" ile sunucuyu başlattığınızdan emin olun.');
+    }
+    throw new Error('Sunucu geçersiz yanıt döndürdü');
+  }
+
+  if (!response.ok) {
+    if (response.status === 429) alert(data.error);
+    throw new Error(data.error || 'Transcription Hatası');
+  }
+  return data.text;
+}
 
 // --- KALICI BELLEK (IndexedDB) YÖNETİMİ ---
 const DB_NAME = 'PronunciationDB'
@@ -116,8 +196,8 @@ export default function SpeakingStudio() {
         setMessages([{ role: 'ai', content: reply }])
       })
     } catch (err) {
-      console.error('Simulation start error:', err)
-      setStatus('setup') // Hata durumunda takılı kalmaması için setup ekranına geri döndür
+      console.error(err)
+      throw err // Prompt hatasında uyarı yerine hatayı fırlat
     } finally {
       setIsProcessing(false)
     }
@@ -134,10 +214,14 @@ export default function SpeakingStudio() {
       if (cachedBlob) {
         blobToPlay = cachedBlob
       } else {
-        try {
-          blobToPlay = await generateSpeechWithAI(text);
-          await saveAudioToDB(cacheKey, blobToPlay);
-        } catch (err) { console.warn('Speech API failed', err); }
+        const response = await fetch(`${getBaseUrl()}/api/ai/speech`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, voice: 'alloy', apiKey: getUserApiKey() })
+        })
+        if (response.ok) { blobToPlay = await response.blob(); await saveAudioToDB(cacheKey, blobToPlay); }
+        else if (response.status === 429) { const err = await response.json(); alert(err.error); }
+
       if (!blobToPlay) {
           const googleUrl = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=en&q=${encodeURIComponent(text)}`
         const res = await fetch(googleUrl)
@@ -481,7 +565,11 @@ export default function SpeakingStudio() {
                   <button
                     type="button"
                     onClick={() => setRoles({ ...roles, aiMode: 'normal' })}
-                    className={`flex-1 flex flex-col items-center justify-center gap-1 rounded-xl border-2 p-3 transition-all ${roles.aiMode === 'normal' ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm dark:bg-indigo-900/40 dark:border-indigo-500 dark:text-indigo-300' : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 eye-care:bg-transparent eye-care:border-[#EAE0C8] eye-care:text-amber-900'}`}
+                    className="flex-1 flex flex-col items-center justify-center gap-1 rounded-xl border-2 p-3 transition-all"
+style={roles.aiMode === 'normal'
+  ? { borderColor: '#4f46e5', backgroundColor: '#eef2ff', color: '#4338ca' }
+  : { borderColor: '#e2e8f0', backgroundColor: 'transparent', color: '#64748b' }
+}
                   >
                     <span className="text-xl">💬</span>
                     <span className="text-sm font-bold">Casual Chat</span>
@@ -489,7 +577,11 @@ export default function SpeakingStudio() {
                   <button
                     type="button"
                 onClick={() => setRoles({ ...roles, aiMode: 'professor' })}
-                    className={`flex-1 flex flex-col items-center justify-center gap-1 rounded-xl border-2 p-3 transition-all ${roles.aiMode === 'professor' ? 'border-emerald-600 bg-emerald-50 text-emerald-700 shadow-sm dark:bg-emerald-900/40 dark:border-emerald-500 dark:text-emerald-300' : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 eye-care:bg-transparent eye-care:border-[#EAE0C8] eye-care:text-amber-900'}`}
+                    className="flex-1 flex flex-col items-center justify-center gap-1 rounded-xl border-2 p-3 transition-all"
+style={roles.aiMode === 'professor'
+  ? { borderColor: '#059669', backgroundColor: '#ecfdf5', color: '#065f46' }
+  : { borderColor: '#e2e8f0', backgroundColor: 'transparent', color: '#64748b' }
+}
                   >
                     <span className="text-xl">🎓</span>
                 <span className="text-sm font-bold">Professor</span>

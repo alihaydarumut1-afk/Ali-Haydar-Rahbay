@@ -1,6 +1,14 @@
 import { useEffect, useState, useRef } from 'react'
 import { Mic, Loader2, Trash2 } from 'lucide-react'
-import { fetchAI, transcribeAudioWithAI } from '../utils/api.js'
+
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+
+const getUserApiKey = () => {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('USER_API_KEY') || '';
+  }
+  return '';
+};
 
 export default function VoiceRecorder({ onTranscription }) {
   const [isRecording, setIsRecording] = useState(false)
@@ -97,7 +105,26 @@ export default function VoiceRecorder({ onTranscription }) {
 
     // 1. AŞAMA: OPENAI WHISPER VEYA GEMINI STT (Sesten Metne)
     try {
-      transcriptText = await transcribeAudioWithAI(blob)
+      const base64Audio = await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve(reader.result.split(',')[1])
+        reader.readAsDataURL(blob)
+      })
+      const response = await fetch(`${getBaseUrl()}/api/ai/transcribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioBase64: base64Audio, mimeType: blob.type, apiKey: getUserApiKey() })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        if (response.status === 429) alert(errorData.error);
+        console.error('API Hatası:', errorData)
+        throw new Error(errorData.error?.message || 'API Sunucusu yanıt vermedi.')
+      }
+
+      const data = await response.json()
+      transcriptText = data.text?.trim() || ''
 
       if (transcriptText && ['you', 'you.', 'thank you.', 'thank you', 'okay', 'okay.'].includes(transcriptText.toLowerCase())) {
         transcriptText = ''
@@ -136,8 +163,17 @@ export default function VoiceRecorder({ onTranscription }) {
       
       Transcript: '${transcriptText}'`
 
-      const feedbackResult = await fetchAI(prompt, true)
-      setAiFeedback(feedbackResult)
+      const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, expectJson: true, apiKey: getUserApiKey() })
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        if (response.status === 429) alert(data.error);
+        throw new Error(data.error || 'AI Hatası');
+      }
+      setAiFeedback(JSON.parse(data.content))
     } catch (err) {
       console.error('Eval error', err)
     } finally {
