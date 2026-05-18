@@ -1,16 +1,7 @@
-import express from 'express';
-import cors from 'cors';
-import { YoutubeTranscript } from 'youtube-transcript';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Eğer projede import hatası alırsanız, bu import satırlarını şu şekilde değiştirin:
-// const express = require('express');
-// const cors = require('cors');
-// const { YoutubeTranscript } = require('youtube-transcript');
+const express = require('express');
+const cors = require('cors');
+const { YoutubeTranscript } = require('youtube-transcript');
+const path = require('path');
 
 const app = express();
 app.set('trust proxy', 1);
@@ -18,14 +9,22 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 const userQuotas = new Map();
-const DAILY_AI_LIMIT = 30; // Günlük yapay zeka işlem kotası
+const DAILY_AI_LIMIT = 30;
 
 const checkQuota = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
-  // Localhost (Kendi bilgisayarınız) ise limiti es geç (Sınırsız kullanım)
+  const incomingApiKey = req.body?.apiKey || '';
+
+  const adminKey = process.env.ADMIN_API_KEY;
+  if (adminKey && incomingApiKey === adminKey) {
+    req.isAdmin = true;
+    return next();
+  }
+
   if (ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
     return next();
   }
+
   const today = new Date().toISOString().split('T')[0];
   const key = `${ip}_${today}`;
   const usage = userQuotas.get(key) || 0;
@@ -36,12 +35,19 @@ const checkQuota = (req, res, next) => {
   next();
 };
 
+const resolveApiKey = (req, userProvidedKey) => {
+  if (req.isAdmin) {
+    return process.env.DEFAULT_API_KEY || userProvidedKey;
+  }
+  return userProvidedKey || process.env.DEFAULT_API_KEY;
+};
+
 app.post('/api/ai/chat', checkQuota, async (req, res) => {
   try {
     const { prompt, expectJson, maxTokens, apiKey } = req.body;
-    const key = apiKey;
+    const key = resolveApiKey(req, apiKey);
     if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
-    
+
     let content = '';
     if (key.startsWith('sk-')) {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -85,9 +91,9 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
 app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
   try {
     const { audioBase64, mimeType, apiKey } = req.body;
-    const key = apiKey;
+    const key = resolveApiKey(req, apiKey);
     if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
-    
+
     let text = '';
     if (key.startsWith('sk-')) {
       const buffer = Buffer.from(audioBase64, 'base64');
@@ -134,10 +140,9 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
 app.post('/api/ai/speech', checkQuota, async (req, res) => {
   try {
     const { text, voice, apiKey } = req.body;
-    const key = apiKey;
-    if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
+    const key = resolveApiKey(req, apiKey);
 
-    if (key.startsWith('sk-')) {
+    if (key && key.startsWith('sk-')) {
       const response = await fetch('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
@@ -160,14 +165,11 @@ app.post('/api/ai/speech', checkQuota, async (req, res) => {
   }
 });
 
-// React arayüzünü (Vite derlemesini) sunuyoruz
 app.use(express.static(path.join(__dirname, 'dist')));
 
 app.get('/api/transcript', async (req, res) => {
   const { videoId } = req.query;
-  if (!videoId) {
-    return res.status(400).json({ error: 'videoId is required' });
-  }
+  if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
   try {
     const transcript = await YoutubeTranscript.fetchTranscript(videoId);
@@ -184,7 +186,6 @@ app.get('/api/transcript', async (req, res) => {
   }
 });
 
-// React Router sayfaları için yönlendirme (sayfa yenilendiğinde çökmeyi önler)
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
@@ -192,7 +193,7 @@ app.get(/(.*)/, (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`===================================================`);
-  console.log(`✅ Arka plan sunucusu çalışıyor: http://localhost:${PORT}`);
-  console.log(`📺 YouTube transkriptleri başarıyla çekilebilir.`);
+  console.log(`✅ Sunucu çalışıyor: http://localhost:${PORT}`);
+  console.log(`🔑 Admin modu: ${process.env.ADMIN_API_KEY ? 'Aktif' : 'Pasif'}`);
   console.log(`===================================================`);
 });
