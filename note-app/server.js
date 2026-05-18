@@ -1,7 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const { YoutubeTranscript } = require('youtube-transcript');
-const path = require('path');
+import express from 'express';
+import cors from 'cors';
+import { YoutubeTranscript } from 'youtube-transcript';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.set('trust proxy', 1);
@@ -15,16 +19,19 @@ const checkQuota = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
   const incomingApiKey = req.body?.apiKey || '';
 
+  // 1. Admin key ile gelen istekler sınırsız
   const adminKey = process.env.ADMIN_API_KEY;
   if (adminKey && incomingApiKey === adminKey) {
     req.isAdmin = true;
     return next();
   }
 
+  // 2. Localhost sınırsız
   if (ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
     return next();
   }
 
+  // 3. Normal kullanıcılar kota kontrolüne tabi
   const today = new Date().toISOString().split('T')[0];
   const key = `${ip}_${today}`;
   const usage = userQuotas.get(key) || 0;
@@ -35,6 +42,7 @@ const checkQuota = (req, res, next) => {
   next();
 };
 
+// Admin key gelirse kendi API key'ini kullan, yoksa kullanıcının key'ini kullan
 const resolveApiKey = (req, userProvidedKey) => {
   if (req.isAdmin) {
     return process.env.DEFAULT_API_KEY || userProvidedKey;
