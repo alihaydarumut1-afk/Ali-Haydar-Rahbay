@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { YoutubeTranscript } = require('youtube-transcript');
@@ -50,6 +51,7 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
   try {
     const { prompt, expectJson, maxTokens, apiKey } = req.body;
     const key = resolveApiKey(req, apiKey);
+console.log('Kullanılan key:', key?.substring(0, 20));
     if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
 
     let content = '';
@@ -200,4 +202,4 @@ app.listen(PORT, () => {
   console.log(`✅ Sunucu çalışıyor: http://localhost:${PORT}`);
   console.log(`🔑 Admin modu: ${process.env.ADMIN_API_KEY ? 'Aktif' : 'Pasif'}`);
   console.log(`===================================================`);
-});s
+});

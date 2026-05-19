@@ -649,7 +649,7 @@ Return ONLY a valid JSON object in this format (no markdown):
                         : (feedback ? '🎉 Correct answer!' : '❌ Wrong answer, try again.')}
                     </p>
                     {typeof feedback === 'object' && feedback.feedback && (
-                  <p className="text-sm font-medium mt-1 text-zinc-700 dark:text-zinc-300 eye-care:text-zinc-800">{feedback.feedback}</p>
+                  <p className="text-sm font-medium mt-1 dark:text-rose-300 eye-care:text-rose-900" style={{ color: '#7f1d1d' }}>{feedback.feedback}</p>
                     )}
                     {typeof feedback !== 'object' && feedback === false && (
                   <div className="mt-3 inline-block rounded-xl border border-rose-200 bg-white/60 px-4 py-2 text-sm text-rose-900 shadow-sm dark:bg-rose-900/40 dark:border-rose-800/50 dark:text-rose-300 eye-care:bg-rose-100/50 eye-care:border-rose-200 eye-care:text-rose-900">
