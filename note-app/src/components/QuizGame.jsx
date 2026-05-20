@@ -349,7 +349,7 @@ Return ONLY a valid JSON object in this format (no markdown):
     key={mode.id}
     onClick={() => { handleModeChange(mode.id); setIsDropdownOpen(false); }}
     className="flex w-full items-center gap-3 px-5 py-3 text-left text-sm font-bold transition hover:bg-slate-100 dark:hover:bg-slate-700"
-    style={{ color: quizMode === mode.id ? '#4f46e5' : '#1e293b' }}
+    style={{ color: quizMode === mode.id ? '#4f46e5' : 'var(--text-main)' }}
   >
     <span className="text-lg">{mode.icon}</span>
     {mode.label}

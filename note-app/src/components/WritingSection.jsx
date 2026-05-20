@@ -13,7 +13,6 @@ const getUserApiKey = () => {
   return '';
 };
 
-// Yapay zekadan dönen kelime türünü WordList sekmeleriyle tam eşleştiren güvenli filtreleyici
 const mapPartOfSpeech = (pos) => {
   if (!pos) return 'Other'
   const lower = String(pos).toLowerCase()
@@ -57,17 +56,55 @@ async function fetchAI(prompt, expectJson = false) {
 }
 
 async function evaluateEssayWithAI(essay, topic, examType) {
-  const prompt = `You are an official ${examType} examiner. Evaluate the following essay written by a B1-B2 level student. The essay topic was: '${topic}'. The student's essay is: '${essay}'.
-  Evaluate strictly based on the official ${examType} rubrics (Task Response, Coherence & Cohesion, Lexical Resource, Grammatical Range & Accuracy).
-  You MUST output a valid JSON with this exact structure:
-  {
-    "estimated_score": "Band 6.5 (for IELTS) or 22/30 (for TOEFL)",
-    "overall_feedback": "A short paragraph summarizing strengths and weaknesses",
-    "grammar_analysis": "Specific grammatical corrections",
-    "vocabulary_suggestions": [{"used": "bad word", "better": "advanced word", "type": "Noun|Verb|Adjective|Phrasal Verb", "meaning": "Turkish meaning", "example": "English example sentence"}],
-    "structure_tips": "Advice on paragraphing and cohesion"
-  }`
-  return await fetchAI(prompt, true)
+  const isIELTS = examType.includes('IELTS')
+
+  const prompt = `You are a strict, professional ${examType} examiner. Evaluate the following essay using the official ${examType} writing rubric.
+
+Essay Topic: "${topic}"
+
+Student Essay:
+"${essay}"
+
+SCORING RULES — Follow official rubric precisely:
+${isIELTS ? `- Task Response (Band 1-9): Does the essay fully address all parts of the task? Is the position clear and well-developed?
+- Coherence & Cohesion (Band 1-9): Is the essay logically organized? Are cohesive devices used effectively?
+- Lexical Resource (Band 1-9): Range and accuracy of vocabulary. Are words used appropriately?
+- Grammatical Range & Accuracy (Band 1-9): Range of structures, frequency of errors.
+- Overall Band Score: Mean of 4 criteria, rounded to nearest 0.5 (e.g. 6.0, 6.5, 7.0).` : `- Task Response (0-5): Does it answer the prompt fully?
+- Development & Organization (0-5): Is the essay well-structured with clear paragraphs?
+- Lexical Resource (0-5): Range and accuracy of vocabulary.
+- Grammatical Range & Accuracy (0-5): Range of structures, frequency of errors.
+- Overall Score: Sum of 4 criteria out of 20.`}
+
+Respond ONLY with a valid JSON object, no markdown, no extra text:
+{
+  "estimated_score": "${isIELTS ? 'IELTS Band 6.5' : 'TOEFL 16/20'}",
+  "band_breakdown": {
+    ${isIELTS ? `"task_response": 6.5,
+    "coherence_cohesion": 6.0,
+    "lexical_resource": 6.5,
+    "grammatical_range": 6.0` : `"task_response": 4,
+    "development_organization": 3,
+    "lexical_resource": 4,
+    "grammatical_range": 3`}
+  },
+  "overall_feedback": "2-3 sentence summary: what was done well and the primary weakness.",
+  "task_response_feedback": "Specific feedback on how well the task/prompt was addressed. Quote from the essay.",
+  "coherence_feedback": "Specific feedback on structure, paragraphing, and linking words used or missing.",
+  "grammar_analysis": "Quote 2-3 actual errors from the essay with corrections and rule explanations.",
+  "lexical_feedback": "Quote weak word choices. Suggest 2-3 advanced alternatives with context.",
+  "structure_tips": "One concrete tip to improve essay organization or argument development.",
+  "vocabulary_suggestions": [{"used": "simple word from essay", "better": "advanced C1 word", "type": "Noun|Verb|Adjective|Phrasal Verb", "meaning": "Turkish meaning", "example": "Example sentence using the better word"}]
+}`
+
+  const rawText = await fetchAI(prompt, false)
+  try {
+    const match = rawText.match(/\{[\s\S]*\}/)
+    if (match) return JSON.parse(match[0])
+    throw new Error('JSON bulunamadı')
+  } catch (e) {
+    throw new Error('Değerlendirme verisi ayrıştırılamadı.')
+  }
 }
 
 export default function WritingSection() {
@@ -165,9 +202,7 @@ export default function WritingSection() {
 
   const handleAddSuggestedWord = async (v) => {
     const isDuplicate = words.some(w => w.english.toLowerCase() === v.better.toLowerCase());
-    if (isDuplicate) {
-      return alert("This word is already in your list!");
-    }
+    if (isDuplicate) return alert("This word is already in your list!");
 
     let wordType = mapPartOfSpeech(v.type);
     let meaning = v.meaning;
@@ -177,10 +212,14 @@ export default function WritingSection() {
       setEnrichingWord(v.better);
       try {
         const prompt = `Analyze the English word "${v.better}". Return ONLY valid JSON with no markdown: {"type": "Noun|Verb|Adjective|Phrasal Verb|Other", "meaning": "Turkish meaning", "example": "An English example sentence"}`;
-        const enriched = await fetchAI(prompt, true);
-        wordType = mapPartOfSpeech(enriched.type);
-        meaning = enriched.meaning || meaning;
-        example = enriched.example || example;
+        const rawText = await fetchAI(prompt, false);
+        const match = rawText.match(/\{[\s\S]*\}/);
+        if (match) {
+          const enriched = JSON.parse(match[0]);
+          wordType = mapPartOfSpeech(enriched.type);
+          meaning = enriched.meaning || meaning;
+          example = enriched.example || example;
+        }
       } catch (e) {
         console.error("Enrichment failed", e);
       } finally {
@@ -213,12 +252,25 @@ export default function WritingSection() {
     setAddedWords(prev => ({ ...prev, [v.better]: true }));
   }
 
+  const isIELTS = examType.includes('IELTS')
+
+  const bandCriteria = isIELTS ? [
+    { key: 'task_response', label: 'Task Response', icon: '📝', bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-700', darkBg: 'dark:bg-indigo-900/20', darkBorder: 'dark:border-indigo-800/50', darkText: 'dark:text-indigo-400', feedbackKey: 'task_response_feedback' },
+    { key: 'coherence_cohesion', label: 'Coherence & Cohesion', icon: '🔗', bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-700', darkBg: 'dark:bg-emerald-900/20', darkBorder: 'dark:border-emerald-800/50', darkText: 'dark:text-emerald-400', feedbackKey: 'coherence_feedback' },
+    { key: 'lexical_resource', label: 'Lexical Resource', icon: '📚', bg: 'bg-sky-50', border: 'border-sky-100', text: 'text-sky-700', darkBg: 'dark:bg-sky-900/20', darkBorder: 'dark:border-sky-800/50', darkText: 'dark:text-sky-400', feedbackKey: 'lexical_feedback' },
+    { key: 'grammatical_range', label: 'Grammar Range', icon: '✍️', bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-700', darkBg: 'dark:bg-rose-900/20', darkBorder: 'dark:border-rose-800/50', darkText: 'dark:text-rose-400', feedbackKey: 'grammar_analysis' },
+  ] : [
+    { key: 'task_response', label: 'Task Response', icon: '📝', bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-700', darkBg: 'dark:bg-indigo-900/20', darkBorder: 'dark:border-indigo-800/50', darkText: 'dark:text-indigo-400', feedbackKey: 'task_response_feedback' },
+    { key: 'development_organization', label: 'Development & Organization', icon: '🔗', bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-700', darkBg: 'dark:bg-emerald-900/20', darkBorder: 'dark:border-emerald-800/50', darkText: 'dark:text-emerald-400', feedbackKey: 'coherence_feedback' },
+    { key: 'lexical_resource', label: 'Lexical Resource', icon: '📚', bg: 'bg-sky-50', border: 'border-sky-100', text: 'text-sky-700', darkBg: 'dark:bg-sky-900/20', darkBorder: 'dark:border-sky-800/50', darkText: 'dark:text-sky-400', feedbackKey: 'lexical_feedback' },
+    { key: 'grammatical_range', label: 'Grammar Range', icon: '✍️', bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-700', darkBg: 'dark:bg-rose-900/20', darkBorder: 'dark:border-rose-800/50', darkText: 'dark:text-rose-400', feedbackKey: 'grammar_analysis' },
+  ]
+
   return (
     <div className="space-y-8 font-sans text-slate-900">
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        {/* LEFT PANEL - Editor & Setup */}
+        {/* LEFT PANEL */}
         <section className="flex flex-col gap-6">
-          {/* Setup Card */}
           <div className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
               <div>
@@ -267,12 +319,11 @@ export default function WritingSection() {
             </div>
           </div>
 
-          {/* Editor Card */}
           <div className="flex flex-col flex-1 rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8]">
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
               <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 eye-care:text-[#3B2F2F]">Your Essay</h2>
-              <span className="rounded-lg bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">
-                {wordCount} words
+              <span className={`rounded-lg px-3 py-1 text-xs font-bold ${wordCount < (isIELTS ? 250 : 300) ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-700'}`}>
+                {wordCount} words {isIELTS ? '(min 250)' : '(min 300)'}
               </span>
             </div>
 
@@ -318,9 +369,8 @@ export default function WritingSection() {
           </div>
         </section>
 
-        {/* RIGHT PANEL - Report & History */}
+        {/* RIGHT PANEL */}
         <div className="flex flex-col gap-6">
-          {/* Report Card */}
           <aside className="rounded-3xl border border-zinc-200 bg-white p-6 shadow-sm dark:bg-zinc-800 dark:border-zinc-700 eye-care:bg-[#F4EAD5] eye-care:border-[#EAE0C8]">
             <div className="mb-6 border-b border-slate-100 pb-4">
               <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-50 eye-care:text-[#3B2F2F]">Evaluation Report</h2>
@@ -332,59 +382,96 @@ export default function WritingSection() {
                 <p className="text-sm font-bold text-slate-500 text-center px-6">AI is reading and grading your essay based on official rubrics...</p>
               </div>
             ) : aiFeedback ? (
-              <div className="space-y-6 animate-fade-in">
+              <div className="space-y-5 animate-fade-in">
+
+                {/* Score Badge */}
                 <div className="flex items-center gap-5 rounded-3xl bg-slate-900 p-6 text-white shadow-lg">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-indigo-500 bg-slate-800 shadow-inner">
-                    <span className="text-lg font-black">{String(aiFeedback.estimated_score).replace(/[^0-9.]/g, '') || '-'}</span>
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full border-4 border-indigo-500 bg-slate-800 shadow-inner shrink-0">
+                    <span className="text-lg font-black">🎓</span>
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold">{aiFeedback.estimated_score}</h3>
-                    <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">Estimated Score</p>
+                    <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">Official {isIELTS ? 'IELTS' : 'TOEFL'} Examiner Score</p>
                   </div>
                 </div>
 
+                {/* Band Breakdown Grid */}
+                {aiFeedback.band_breakdown && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {bandCriteria.map(({ key, label, icon, bg, border, text, darkBg, darkBorder, darkText }) => (
+                      <div key={key} className={`rounded-2xl ${bg} ${border} ${darkBg} ${darkBorder} border p-3 text-center`}>
+                        <div className="text-xl mb-1">{icon}</div>
+                        <div className={`text-2xl font-black ${text} ${darkText}`}>
+                          {aiFeedback.band_breakdown[key] ?? '—'}
+                        </div>
+                        <div className={`text-[10px] font-bold uppercase tracking-wide ${text} ${darkText} mt-1 opacity-80 leading-tight`}>
+                          {label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Overall Feedback — 🔴 DÜZELTİLDİ */}
                 <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100 p-5">
-                  <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2"><CheckCircle size={16} /> Overall Feedback</h4>
-                  <p className="text-sm text-slate-700 leading-relaxed font-medium">{aiFeedback.overall_feedback}</p>
+                  <h4 className="font-bold text-indigo-900 dark:text-indigo-400 mb-2 flex items-center gap-2"><CheckCircle size={16} /> Overall Feedback</h4>
+                  <p className="text-sm text-slate-900 dark:text-zinc-100 leading-relaxed font-semibold">{aiFeedback.overall_feedback}</p>
                 </div>
 
-                <div className="rounded-2xl bg-rose-50/50 border border-rose-100 p-5">
-                  <h4 className="font-bold text-rose-900 mb-2 flex items-center gap-2"><PenTool size={16} /> Grammar Analysis</h4>
-                  <p className="text-sm text-slate-700 leading-relaxed font-medium">{aiFeedback.grammar_analysis}</p>
-                </div>
+                {/* Criterion-specific feedback cards — 🔴 DÜZELTİLDİ */}
+                {bandCriteria.map(({ key, label, icon, bg, border, text, darkBg, darkBorder, darkText, feedbackKey }) => (
+                  aiFeedback[feedbackKey] && (
+                    <div key={key} className={`rounded-2xl ${bg} ${border} ${darkBg} ${darkBorder} border p-5`}>
+                      <h4 className={`font-bold ${text} ${darkText} mb-2 flex items-center gap-2`}>
+                        <span>{icon}</span> {label}
+                        {aiFeedback.band_breakdown?.[key] && (
+                          <span className={`ml-auto text-sm font-black ${text} ${darkText}`}>
+                            {isIELTS ? `Band ${aiFeedback.band_breakdown[key]}` : `${aiFeedback.band_breakdown[key]}/5`}
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-sm text-slate-900 dark:text-zinc-100 leading-relaxed font-semibold">{aiFeedback[feedbackKey]}</p>
+                    </div>
+                  )
+                ))}
 
-                <div className="rounded-2xl bg-amber-50/50 border border-amber-100 p-5">
-                  <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2"><FileText size={16} /> Structure Tips</h4>
-                  <p className="text-sm text-slate-700 leading-relaxed font-medium">{aiFeedback.structure_tips}</p>
-                </div>
+                {/* Structure Tips — 🔴 DÜZELTİLDİ */}
+                {aiFeedback.structure_tips && (
+                  <div className="rounded-2xl bg-amber-50/50 border border-amber-100 p-5">
+                    <h4 className="font-bold text-amber-900 dark:text-amber-400 mb-2 flex items-center gap-2"><FileText size={16} /> Structure Tips</h4>
+                    <p className="text-sm text-slate-900 dark:text-zinc-100 leading-relaxed font-semibold">{aiFeedback.structure_tips}</p>
+                  </div>
+                )}
 
+                {/* Vocabulary Upgrades */}
                 {aiFeedback.vocabulary_suggestions && aiFeedback.vocabulary_suggestions.length > 0 && (
                   <div className="rounded-2xl bg-emerald-50/50 border border-emerald-100 p-5">
-                    <h4 className="font-bold text-emerald-900 mb-4 flex items-center gap-2"><Plus size={16} /> Vocabulary Upgrades</h4>
+                    <h4 className="font-bold text-emerald-900 dark:text-emerald-400 mb-4 flex items-center gap-2"><Plus size={16} /> Vocabulary Upgrades</h4>
                     <div className="space-y-3">
                       {aiFeedback.vocabulary_suggestions.map((v, i) => {
                         const isWordAdded = addedWords[v.better] || words.some(w => w.english.toLowerCase() === v.better.toLowerCase());
                         return (
-                        <div key={i} className="flex flex-col gap-2 bg-white p-4 rounded-xl border border-emerald-100 shadow-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-semibold text-slate-500 line-through truncate">{v.used}</span>
-                            <span className="text-slate-300">→</span>
-                            <span className="text-base font-bold text-emerald-700">{v.better}</span>
-                          </div>
-                          {(v.meaning || v.example) && (
-                            <div className="mt-1 flex flex-col gap-1 text-sm text-slate-600">
-                              {v.meaning && <p><span className="font-semibold">Meaning:</span> {v.meaning}</p>}
-                              {v.example && <p className="italic"><span className="font-semibold not-italic">Ex:</span> "{v.example}"</p>}
+                          <div key={i} className="flex flex-col gap-2 bg-white dark:bg-zinc-800 p-4 rounded-xl border border-emerald-100 shadow-sm">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-slate-500 line-through truncate">{v.used}</span>
+                              <span className="text-slate-300">→</span>
+                              <span className="text-base font-bold text-emerald-700 dark:text-emerald-400">{v.better}</span>
                             </div>
-                          )}
-                          <button 
-                            onClick={() => handleAddSuggestedWord(v)} 
-                            disabled={isWordAdded || enrichingWord === v.better} 
-                            className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition ${isWordAdded ? 'bg-emerald-500 text-white cursor-not-allowed' : enrichingWord === v.better ? 'bg-emerald-200 text-emerald-800 cursor-wait' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'}`}
-                          >
-                            {isWordAdded ? 'Added to List ✓' : enrichingWord === v.better ? 'Fixing & Adding...' : '+ Add to List'}
-                          </button>
-                        </div>
+                            {(v.meaning || v.example) && (
+                              <div className="mt-1 flex flex-col gap-1 text-sm">
+                                {/* 🔴 DÜZELTİLDİ: Türkçe anlam ve örnek cümle koyu renk */}
+                                {v.meaning && <p className="text-slate-900 dark:text-zinc-100 font-semibold"><span className="font-bold">Meaning:</span> {v.meaning}</p>}
+                                {v.example && <p className="italic text-slate-800 dark:text-zinc-200 font-medium"><span className="font-bold not-italic">Ex:</span> "{v.example}"</p>}
+                              </div>
+                            )}
+                            <button 
+                              onClick={() => handleAddSuggestedWord(v)} 
+                              disabled={isWordAdded || enrichingWord === v.better} 
+                              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition ${isWordAdded ? 'bg-emerald-500 text-white cursor-not-allowed' : enrichingWord === v.better ? 'bg-emerald-200 text-emerald-800 cursor-wait' : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'}`}
+                            >
+                              {isWordAdded ? 'Added to List ✓' : enrichingWord === v.better ? 'Fixing & Adding...' : '+ Add to List'}
+                            </button>
+                          </div>
                         )
                       })}
                     </div>
@@ -400,12 +487,12 @@ export default function WritingSection() {
           </aside>
 
           {/* History Card */}
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-zinc-800 dark:border-zinc-700">
             <button
               onClick={() => setIsSavedOpen(!isSavedOpen)}
-              className="flex w-full items-center justify-between rounded-2xl bg-slate-50 px-5 py-4 text-left transition hover:bg-slate-100"
+              className="flex w-full items-center justify-between rounded-2xl bg-slate-50 dark:bg-zinc-900 px-5 py-4 text-left transition hover:bg-slate-100"
             >
-              <span className="text-lg font-bold text-slate-900">Saved Writings <span className="ml-2 text-sm text-slate-500">({writings.length})</span></span>
+              <span className="text-lg font-bold text-slate-900 dark:text-zinc-50">Saved Writings <span className="ml-2 text-sm text-slate-500">({writings.length})</span></span>
               <svg className={`h-5 w-5 text-slate-500 transition-transform ${isSavedOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
             </button>
 
@@ -416,11 +503,11 @@ export default function WritingSection() {
                 ) : (
                   <div className="space-y-3 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
                     {writings.map((entry) => (
-                      <div key={entry.id} onClick={() => handleLoadWriting(entry)} className={`group cursor-pointer rounded-2xl border p-4 transition-all ${selectedId === entry.id ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white hover:border-indigo-300'}`}>
+                      <div key={entry.id} onClick={() => handleLoadWriting(entry)} className={`group cursor-pointer rounded-2xl border p-4 transition-all ${selectedId === entry.id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-slate-200 bg-white dark:bg-zinc-800 hover:border-indigo-300'}`}>
                         <div className="flex items-start justify-between gap-3 mb-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-md bg-slate-900 px-2 py-0.5 text-[10px] font-bold text-white">{entry.mode || 'IELTS'}</span>
-                            <span className="font-bold text-slate-800">{entry.analysis?.estimated_score ? entry.analysis.estimated_score.match(/\d+(\.\d+)?/)?.[0] || 'Scored' : 'Not Scored'}</span>
+                            <span className="font-bold text-slate-800 dark:text-zinc-100 text-sm">{entry.analysis?.estimated_score || 'Not Scored'}</span>
                           </div>
                           <button type="button" onClick={(e) => handleDelete(entry.id, e)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-100 hover:text-rose-600" title="Delete"><Trash2 size={16} /></button>
                         </div>

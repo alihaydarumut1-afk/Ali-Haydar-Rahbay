@@ -16,19 +16,16 @@ const checkQuota = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
   const incomingApiKey = req.body?.apiKey || '';
 
-  // 1. Admin key ile gelen istekler sınırsız
   const adminKey = process.env.ADMIN_API_KEY;
   if (adminKey && incomingApiKey === adminKey) {
     req.isAdmin = true;
     return next();
   }
 
-  // 2. Localhost sınırsız
   if (ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
     return next();
   }
 
-  // 3. Normal kullanıcılar kota kontrolüne tabi
   const today = new Date().toISOString().split('T')[0];
   const key = `${ip}_${today}`;
   const usage = userQuotas.get(key) || 0;
@@ -39,7 +36,6 @@ const checkQuota = (req, res, next) => {
   next();
 };
 
-// Admin key gelirse kendi API key'ini kullan, yoksa kullanıcının key'ini kullan
 const resolveApiKey = (req, userProvidedKey) => {
   if (req.isAdmin) {
     return process.env.DEFAULT_API_KEY || userProvidedKey;
@@ -51,7 +47,7 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
   try {
     const { prompt, expectJson, maxTokens, apiKey } = req.body;
     const key = resolveApiKey(req, apiKey);
-console.log('Kullanılan key:', key?.substring(0, 20));
+    console.log('Kullanılan key:', key?.substring(0, 20));
     if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
 
     let content = '';
@@ -61,7 +57,10 @@ console.log('Kullanılan key:', key?.substring(0, 20));
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [{ role: 'system', content: prompt }],
+          messages: [
+  { role: 'system', content: 'You are a helpful assistant. Always respond in valid JSON format when asked.' },
+  { role: 'user', content: prompt }
+],
           temperature: 0.3,
           max_tokens: maxTokens || (expectJson ? 1500 : 800),
           ...(expectJson ? { response_format: { type: 'json_object' } } : {})
@@ -171,7 +170,7 @@ app.post('/api/ai/speech', checkQuota, async (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.static(path.join(__dirname, 'note-app', 'dist')));
 
 app.get('/api/transcript', async (req, res) => {
   const { videoId } = req.query;
@@ -193,7 +192,7 @@ app.get('/api/transcript', async (req, res) => {
 });
 
 app.get(/(.*)/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'note-app', 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;

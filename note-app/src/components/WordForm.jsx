@@ -2,107 +2,156 @@ import { useState } from 'react'
 
 export default function WordForm({ onSave, words = [] }) {
   const [english, setEnglish] = useState('')
-  const [turkish, setTurkish] = useState('')
-  const [type, setType] = useState('Noun')
-  const [sentence, setSentence] = useState('')
-  const [collocation, setCollocation] = useState('')
+  const [entries, setEntries] = useState([{ turkish: '', type: 'Noun', sentence: '', collocation: '' }])
   const [error, setError] = useState('')
+
+  const addEntry = () => {
+    setEntries(prev => [...prev, { turkish: '', type: 'Noun', sentence: '', collocation: '' }])
+  }
+
+  const removeEntry = (index) => {
+    if (entries.length === 1) return
+    setEntries(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const updateEntry = (index, field, value) => {
+    setEntries(prev => prev.map((e, i) => i === index ? { ...e, [field]: value } : e))
+  }
 
   const handleSubmit = (event) => {
     event.preventDefault()
     setError('')
 
-    if (!english.trim() || !turkish.trim()) {
-      setError('Please enter an English word and its Turkish meaning.')
+    if (!english.trim()) {
+      setError('Please enter an English word.')
       return
     }
 
-    // Duplicate kontrolü (case-insensitive)
-    const englishLower = english.toLowerCase().trim()
-    const isDuplicate = words.some(word =>
-      word.english.toLowerCase().trim() === englishLower
+    const validEntries = entries.filter(e => e.turkish.trim())
+    if (validEntries.length === 0) {
+      setError('Please enter at least one Turkish meaning.')
+      return
+    }
+
+    const isDuplicate = words.some(w =>
+      w.english.toLowerCase().trim() === english.toLowerCase().trim()
     )
-
     if (isDuplicate) {
-      setError('This word is already in your list!')
+      setError(`"${english.trim()}" is already in your list. Use the Edit button to modify it.`)
       return
     }
 
-    onSave({ english, turkish, type, sentence, collocation })
+    validEntries.forEach(entry => {
+      onSave({ english, turkish: entry.turkish, type: entry.type, sentence: entry.sentence, collocation: entry.collocation })
+    })
+
     setEnglish('')
-    setTurkish('')
-    setType('Noun')
-    setSentence('')
-    setCollocation('')
+    setEntries([{ turkish: '', type: 'Noun', sentence: '', collocation: '' }])
   }
 
+  const labelStyle = { color: 'var(--text-main)' }
+  const inputClass = "w-full rounded-xl border-2 px-3 py-2.5 text-sm outline-none transition focus:border-indigo-500"
+  const inputStyle = { borderColor: 'var(--border-color)', backgroundColor: 'var(--card-bg)', color: 'var(--text-main)' }
+
   return (
-    <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-300 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-600 dark:shadow-none">
-      <h2 className="mb-4 text-2xl font-bold text-black dark:text-white">Add New Word</h2>
+    <form onSubmit={handleSubmit} className="rounded-3xl border p-6 shadow-sm" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+      <h2 className="mb-4 text-2xl font-bold" style={labelStyle}>Add New Word</h2>
 
       {error && (
-        <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-900/20 dark:text-rose-300">
+        <div className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
       )}
 
-      <label className="mb-2 block text-sm font-bold text-black dark:text-white">English Word</label>
+      <label className="mb-2 block text-sm font-bold" style={labelStyle}>English Word</label>
       <input
         value={english}
-        onChange={(event) => setEnglish(event.target.value)}
+        onChange={(e) => setEnglish(e.target.value)}
         placeholder="English word"
-        className="mb-4 w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400"
+        className="mb-6 w-full rounded-2xl border-2 px-4 py-3 outline-none transition focus:border-indigo-500"
+        style={inputStyle}
       />
 
-      <label className="mb-2 block text-sm font-bold text-black dark:text-white">Turkish Meaning</label>
-      <input
-        value={turkish}
-        onChange={(event) => setTurkish(event.target.value)}
-        placeholder="Turkish meaning"
-        className="mb-4 w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400"
-      />
+      <div className="mb-4 space-y-4">
+        {entries.map((entry, index) => (
+          <div key={index} className="rounded-2xl border-2 p-4" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-bold uppercase tracking-widest text-indigo-500">
+                Meaning {index + 1}
+              </span>
+              {entries.length > 1 && (
+                <button type="button" onClick={() => removeEntry(index)} className="text-rose-400 hover:text-rose-600 text-xs font-semibold transition">
+                  ✕ Remove
+                </button>
+              )}
+            </div>
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-bold text-black dark:text-white">Word Type</label>
-          <select
-            value={type}
-            onChange={(event) => setType(event.target.value)}
-            className="w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-black outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:focus:border-indigo-400"
-          >
-            <option>Noun</option>
-            <option>Verb</option>
-            <option>Adjective</option>
-            <option>Phrasal Verb</option>
-            <option>Other</option>
-          </select>
-        </div>
+            <div className="grid gap-3 sm:grid-cols-2 mb-3">
+              <div>
+                <label className="mb-1 block text-xs font-bold" style={labelStyle}>Turkish Meaning</label>
+                <input
+                  value={entry.turkish}
+                  onChange={(e) => updateEntry(index, 'turkish', e.target.value)}
+                  placeholder="Turkish meaning"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold" style={labelStyle}>Word Type</label>
+                <select
+                  value={entry.type}
+                  onChange={(e) => updateEntry(index, 'type', e.target.value)}
+                  className={inputClass}
+                  style={inputStyle}
+                >
+                  <option>Noun</option>
+                  <option>Verb</option>
+                  <option>Adjective</option>
+                  <option>Phrasal Verb</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
 
-        <div>
-        <label className="mb-2 block text-sm font-bold text-black dark:text-white">Collocation (Optional)</label>
-          <input
-          value={collocation}
-          onChange={(event) => setCollocation(event.target.value)}
-          placeholder="e.g. make a mistake"
-            className="w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400"
-          />
-        </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-xs font-bold" style={labelStyle}>Collocation (Optional)</label>
+                <input
+                  value={entry.collocation}
+                  onChange={(e) => updateEntry(index, 'collocation', e.target.value)}
+                  placeholder="e.g. make a mistake"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-bold" style={labelStyle}>Example Sentence (Optional)</label>
+                <input
+                  value={entry.sentence}
+                  onChange={(e) => updateEntry(index, 'sentence', e.target.value)}
+                  placeholder="Example sentence"
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
-
-    <div className="mb-4">
-      <label className="mb-2 block text-sm font-bold text-black dark:text-white">Example Sentence</label>
-      <input
-        value={sentence}
-        onChange={(event) => setSentence(event.target.value)}
-        placeholder="Example sentence"
-        className="w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400"
-      />
-    </div>
+      <button
+        type="button"
+        onClick={addEntry}
+        className="mb-4 w-full rounded-2xl border-2 border-dashed border-indigo-300 px-4 py-2.5 text-sm font-semibold text-indigo-500 transition hover:border-indigo-500 hover:bg-indigo-50"
+      >
+        + Add Another Meaning
+      </button>
 
       <button
         type="submit"
-        className="inline-flex w-full justify-center rounded-2xl bg-slate-900 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-white dark:text-black dark:hover:bg-slate-200"
+        className="inline-flex w-full justify-center rounded-2xl px-5 py-3 text-sm font-bold text-white transition"
+        style={{ backgroundColor: 'var(--accent)' }}
       >
         Save Word
       </button>

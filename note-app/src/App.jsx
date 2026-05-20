@@ -15,8 +15,7 @@ import CreativeLab from './components/CreativeLab.jsx'
 import ImmersionStudio from './components/ImmersionStudio.jsx'
 import SpeakingStudio from './components/SpeakingStudio.jsx'
 import WordTable from './components/WordTable.jsx'
-import ThemeDashboardModal from './components/ThemeDashboardModal.jsx'
-import AppearanceSettingsModal from './components/AppearanceSettingsModal.jsx'
+import UnifiedThemeModal from './components/UnifiedThemeModal.jsx'
 import PersonalizedHeader from './components/PersonalizedHeader.jsx'
 import useWords from './hooks/useWords.js'
 import useReadings from './hooks/useReadings.js'
@@ -41,16 +40,10 @@ const defaultAppearance = {
     'Phrasal Verb': '#ffedd5',
     'Phrasal Verb Header': '#fed7aa',
   },
-  typography: {
-    fontFamily: "'Inter', sans-serif",
-    fontSize: 16,
-  },
-  corners: {
-    radius: '1rem',
-  }
+  typography: { fontFamily: "'Inter', sans-serif", fontSize: 16 },
+  corners: { radius: '1rem' }
 }
 
-// ✅ Eşik 128→160: açık arka planlarda koyu metin daha erken seçilir
 function getContrastColor(hexColor) {
   if (!hexColor) return '#0f172a'
   const hex = hexColor.replace('#', '')
@@ -58,7 +51,7 @@ function getContrastColor(hexColor) {
   const g = parseInt(hex.substring(2, 4), 16)
   const b = parseInt(hex.substring(4, 6), 16)
   const yiq = (r * 299 + g * 587 + b * 114) / 1000
-  return yiq >= 160 ? '#0f172a' : '#f8fafc'  // koyu→açık için saf beyaz yerine off-white
+  return yiq >= 160 ? '#0f172a' : '#f8fafc'
 }
 
 function CreativeLabWrapper({ words }) {
@@ -72,7 +65,6 @@ export default function App() {
 
   const [user, setUser] = useState(undefined)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isAppearanceModalOpen, setIsAppearanceModalOpen] = useState(false)
 
   const [isBlurEnabled, setIsBlurEnabled] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -131,11 +123,12 @@ export default function App() {
     '--base-size': `${appearance.typography.fontSize}px`,
     '--card-radius': appearance.corners.radius,
     '--bg-main': activeTheme.bg,
+    '--card-bg': activeTheme.card,
+    '--accent': activeTheme.accent,
     '--bg-sidebar': appearance.colors?.['Sidebar'] || defaultAppearance.colors['Sidebar'],
     '--text-sidebar': getContrastColor(appearance.colors?.['Sidebar'] || defaultAppearance.colors['Sidebar']),
-    // ✅ Kontrast artırıldı: koyu mod için daha parlak beyaz, açık mod için daha koyu siyah
     '--text-main': baseIsDark ? '#f1f5f9' : '#0f172a',
-    '--text-muted': baseIsDark ? '#cbd5e1' : '#475569',  // ✅ eskiden 94a3b8/64748b → daha okunaklı
+    '--text-muted': baseIsDark ? '#cbd5e1' : '#475569',
     '--border-color': baseIsDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.12)',
     '--hover-bg': baseIsDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.04)',
     '--bg-noun': appearance.colors['Noun'] || defaultAppearance.colors['Noun'],
@@ -157,8 +150,12 @@ export default function App() {
     '--secondary': activeTheme.secondary || '#fbbc04',
   }
 
-  const handleSaveAppearance = (draft) => { setAppearance(draft); setIsAppearanceModalOpen(false) }
-  const handleSaveTheme = (draft) => { setThemeSettings(draft); setIsThemeModalOpen(false); setPreviewTheme(null) }
+  const handleSaveUnified = ({ theme: newTheme, appearance: newAppearance }) => {
+    setThemeSettings(newTheme)
+    setAppearance(newAppearance)
+    setIsThemeModalOpen(false)
+    setPreviewTheme(null)
+  }
   const toggleBlur = () => {
     setIsBlurEnabled(prev => {
       const next = !prev
@@ -168,12 +165,14 @@ export default function App() {
     })
   }
 
+  const menuTextStyle = { color: 'var(--text-main)' }
+
   const renderHeaderAndThemeMenu = (title, isDashboard = false) => (
     <>
       {isDashboard && <PersonalizedHeader />}
       <div className="mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h2 className="text-2xl font-bold tracking-tight" style={menuTextStyle}>
             {isDashboard ? 'Dashboard' : title}
           </h2>
         </div>
@@ -182,7 +181,8 @@ export default function App() {
             <div className="relative">
               <button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="tour-settings flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50"
+                className="tour-settings flex h-11 w-11 items-center justify-center rounded-full border shadow-sm transition"
+                style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--card-bg)', color: 'var(--text-main)' }}
                 title="Gelişmiş Görünüm Ayarları"
               >
                 <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -192,18 +192,23 @@ export default function App() {
               {isMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setIsMenuOpen(false)}></div>
-                  <div className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl border border-slate-100 bg-white py-2 shadow-xl z-50">
-                    <button onClick={toggleBlur} className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  <div className="absolute right-0 mt-2 w-60 origin-top-right rounded-2xl border py-2 shadow-xl z-50" style={{ backgroundColor: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+                    <button onClick={toggleBlur} className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold transition" style={menuTextStyle}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
                       <div className="flex items-center gap-3"><span className="text-lg">👁️</span>Buğulu Çeviri</div>
                       <div className={`relative flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${isBlurEnabled ? 'bg-indigo-500' : 'bg-slate-300'}`}>
                         <div className={`absolute h-4 w-4 rounded-full bg-white transition-transform ${isBlurEnabled ? 'translate-x-4' : 'translate-x-1'}`} />
                       </div>
                     </button>
-                    <div className="my-1 border-t border-slate-100"></div>
-                    <button onClick={() => { setIsThemeModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><span className="text-lg">🎨</span>Tema Ayarları</button>
-                    <button onClick={() => { setIsAppearanceModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><span className="text-lg">✨</span>Gelişmiş Görünüm</button>
-                    <div className="my-1 border-t border-slate-100"></div>
-                    <button onClick={() => signOut(auth)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 hover:bg-rose-50"><span className="text-lg">🚪</span>Çıkış Yap</button>
+                    <div className="my-1 border-t" style={{ borderColor: 'var(--border-color)' }}></div>
+                    <button onClick={() => { setIsThemeModalOpen(true); setIsMenuOpen(false) }} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold transition" style={menuTextStyle}
+                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--hover-bg)'}
+                      onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                    ><span className="text-lg">🎨</span>Customize &amp; Style</button>
+                    <div className="my-1 border-t" style={{ borderColor: 'var(--border-color)' }}></div>
+                    <button onClick={() => signOut(auth)} className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"><span className="text-lg">🚪</span>Çıkış Yap</button>
                   </div>
                 </>
               )}
@@ -228,35 +233,25 @@ export default function App() {
 
   return (
     <HashRouter>
-      <div className="min-h-screen overflow-x-hidden transition-colors duration-300" style={{ ...styleVars, fontSize: 'var(--base-size)', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)', '--card-bg': activeTheme.card, '--accent': activeTheme.accent }}>
+      <div className="min-h-screen overflow-x-hidden transition-colors duration-300" style={{ ...styleVars, fontSize: 'var(--base-size)', backgroundColor: 'var(--bg-main)', color: 'var(--text-main)' }}>
         {activeTheme.brightness && activeTheme.brightness !== 1 && (
           <div className="pointer-events-none fixed inset-0 z-[99999] transition-colors duration-300" style={{ backgroundColor: activeTheme.brightness < 1 ? `rgba(0, 0, 0, ${1 - activeTheme.brightness})` : `rgba(255, 255, 255, ${(activeTheme.brightness - 1) * 0.5})` }} />
         )}
         <style dangerouslySetInnerHTML={{ __html: `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
-  * { font-family: var(--font-main) !important; }
-
-  /* Modal içindeki elementleri override'dan muaf tut */
-  [data-modal] .bg-white { background-color: #ffffff !important; }
-  [data-modal] .bg-slate-50 { background-color: #f8fafc !important; }
-  [data-modal] .bg-slate-100 { background-color: #f1f5f9 !important; }
-  [data-modal] .text-slate-900, [data-modal] .text-slate-800 { color: #0f172a !important; }
-  [data-modal] .text-slate-700, [data-modal] .text-slate-600 { color: #334155 !important; }
-  [data-modal] .text-slate-500, [data-modal] .text-slate-400 { color: #64748b !important; }
-  [data-modal] .border-slate-200, [data-modal] .border-slate-100 { border-color: #e2e8f0 !important; }
-
-  /* Normal sayfa override'ları */
-  .bg-white { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
-  .bg-slate-50, .bg-zinc-50, .bg-slate-100, .bg-zinc-100 { background-color: var(--hover-bg) !important; border-color: var(--border-color) !important; }
-  .text-slate-950, .text-slate-900, .text-slate-800, .text-zinc-900, .text-zinc-800 { color: var(--text-main) !important; }
-  .text-slate-700, .text-slate-600, .text-slate-500, .text-zinc-600, .text-zinc-500, .text-zinc-400 { color: var(--text-muted) !important; }
-  .border-slate-200, .border-slate-100, .border-zinc-200 { border-color: var(--border-color) !important; }
-  .bg-slate-950, .bg-slate-900, .bg-zinc-900 { background-color: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; }
-
-  /* Placeholder ve input renkleri */
+  *:not([data-modal] *) { font-family: var(--font-main) !important; }
+  [data-modal] * { font-family: inherit; }
+  :not([data-modal] *).bg-white { background-color: var(--card-bg) !important; border-color: var(--border-color) !important; }
+  :not([data-modal] *).bg-slate-50, :not([data-modal] *).bg-zinc-50, :not([data-modal] *).bg-slate-100, :not([data-modal] *).bg-zinc-100 { background-color: var(--hover-bg) !important; }
+  :not([data-modal] *).text-slate-950, :not([data-modal] *).text-slate-900, :not([data-modal] *).text-slate-800, :not([data-modal] *).text-zinc-900, :not([data-modal] *).text-zinc-800 { color: var(--text-main) !important; }
+  :not([data-modal] *).text-slate-700, :not([data-modal] *).text-slate-600, :not([data-modal] *).text-slate-500, :not([data-modal] *).text-zinc-600, :not([data-modal] *).text-zinc-500, :not([data-modal] *).text-zinc-400 { color: var(--text-muted) !important; }
+  :not([data-modal] *).text-black { color: var(--text-main) !important; }
+  :not([data-modal] *) h1, :not([data-modal] *) h2, :not([data-modal] *) h3, :not([data-modal] *) h4, :not([data-modal] *) h5, :not([data-modal] *) h6 { color: var(--text-main) !important; }
+  :not([data-modal] *) label { color: var(--text-main) !important; }
+  :not([data-modal] *).border-slate-200, :not([data-modal] *).border-slate-100, :not([data-modal] *).border-zinc-200 { border-color: var(--border-color) !important; }
+  :not([data-modal] *).bg-slate-950, :not([data-modal] *).bg-slate-900, :not([data-modal] *).bg-zinc-900 { background-color: var(--accent) !important; color: #ffffff !important; border-color: var(--accent) !important; }
   ::placeholder { color: #6b7280 !important; opacity: 1 !important; }
   input, textarea, select { color: var(--text-main) !important; }
-
   @keyframes pageFadeIn { from { opacity: 0; transform: translateY(12px) scale(0.995); } to { opacity: 1; transform: none; } }
   .page-transition { animation: pageFadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 `}} />
@@ -277,8 +272,14 @@ export default function App() {
             <Route path="/immersion" element={<>{renderHeaderAndThemeMenu('Media Lab')}<ImmersionStudio /></>} />
           </Route>
         </Routes>
-        <AppearanceSettingsModal isOpen={isAppearanceModalOpen} onClose={() => setIsAppearanceModalOpen(false)} onSave={handleSaveAppearance} initialSettings={appearance} />
-        <ThemeDashboardModal isOpen={isThemeModalOpen} onClose={() => { setIsThemeModalOpen(false); setPreviewTheme(null) }} onSave={handleSaveTheme} onPreview={setPreviewTheme} initialSettings={themeSettings} />
+        <UnifiedThemeModal
+          isOpen={isThemeModalOpen}
+          onClose={() => { setIsThemeModalOpen(false); setPreviewTheme(null) }}
+          onSave={handleSaveUnified}
+          onPreview={({ theme: t }) => setPreviewTheme(t)}
+          initialTheme={themeSettings}
+          initialAppearance={appearance}
+        />
         <TextSelectionTranslator onAddWord={addWord} />
       </div>
     </HashRouter>
