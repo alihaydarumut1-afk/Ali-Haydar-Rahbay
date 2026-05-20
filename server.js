@@ -1,4 +1,5 @@
 require('dotenv').config();
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const express = require('express');
 const cors = require('cors');
 const { YoutubeTranscript } = require('youtube-transcript');
@@ -176,19 +177,32 @@ app.get('/api/transcript', async (req, res) => {
   const { videoId } = req.query;
   if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
-  try {
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    const formatted = transcript.map((item, index) => ({
-      id: index,
-      start: item.offset / 1000,
-      end: (item.offset + item.duration) / 1000,
-      text: item.text
-    }));
-    res.json(formatted);
-  } catch (error) {
-    console.error('Transcript error:', error);
-    res.status(500).json({ error: 'Transkript alınamadı. Videonun altyazısı kapalı olabilir.' });
+  const proxies = [
+    'http://178.62.193.19:3128',
+    'http://51.159.115.233:3128',
+    'http://20.111.54.16:8123',
+  ];
+
+  for (const proxyUrl of proxies) {
+    try {
+      const agent = new HttpsProxyAgent(proxyUrl);
+      const customFetch = (url, options = {}) =>
+        fetch(url, { ...options, agent });
+
+      const transcript = await YoutubeTranscript.fetchTranscript(videoId, { fetch: customFetch });
+      const formatted = transcript.map((item, index) => ({
+        id: index,
+        start: item.offset / 1000,
+        end: (item.offset + item.duration) / 1000,
+        text: item.text
+      }));
+      return res.json(formatted);
+    } catch (err) {
+      console.error(`Proxy başarısız (${proxyUrl}):`, err.message);
+    }
   }
+
+  res.status(500).json({ error: 'Transkript alınamadı. Tüm proxy\'ler başarısız oldu.' });
 });
 
 app.get(/(.*)/, (req, res) => {
