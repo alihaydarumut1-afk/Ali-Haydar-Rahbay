@@ -183,27 +183,29 @@ app.get('/api/transcript', async (req, res) => {
 
   try {
     const { Innertube } = await import('youtubei.js');
-    const youtube = await Innertube.create({ retrieve_player: false });
+    const youtube = await Innertube.create();
+    
     const info = await youtube.getInfo(videoId);
     const transcriptData = await info.getTranscript();
-    
+
     const segments = transcriptData?.transcript?.content?.body?.initial_segments || [];
-    const formatted = segments.map((seg, index) => ({
-      id: index,
-      start: (seg.start_ms || 0) / 1000,
-      end: (seg.end_ms || 0) / 1000,
-      text: seg.snippet?.text || ''
-    }));
+
+    const formatted = segments
+      .filter(seg => seg.snippet?.runs?.[0]?.text)
+      .map((seg, index) => ({
+        id: index,
+        start: Number(seg.start_ms) / 1000,
+        end: Number(seg.end_ms) / 1000,
+        text: seg.snippet.runs.map(r => r.text).join('')
+      }));
+
+    if (formatted.length === 0) throw new Error('Transcript boş geldi');
 
     res.json(formatted);
   } catch (error) {
-    console.error('Transcript error:', error);
+    console.error('Transcript error:', error.message);
     res.status(500).json({ error: 'Transkript alınamadı: ' + error.message });
   }
-});
-
-app.get(/(.*)/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;

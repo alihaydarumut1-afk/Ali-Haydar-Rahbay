@@ -183,12 +183,13 @@ app.get('/api/transcript', async (req, res) => {
 
   try {
     const { Innertube } = await import('youtubei.js');
-    const youtube = await Innertube.create({ retrieve_player: false });
+    const youtube = await Innertube.create();
+    
     const info = await youtube.getInfo(videoId);
     const transcriptData = await info.getTranscript();
 
     const segments = transcriptData?.transcript?.content?.body?.initial_segments || [];
-    
+
     const formatted = segments
       .filter(seg => seg.snippet?.runs?.[0]?.text)
       .map((seg, index) => ({
