@@ -1,3 +1,5 @@
+import { fetch as undiciFetch, ProxyAgent } from 'undici';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import express from 'express';
 import cors from 'cors';
 import { YoutubeTranscript } from 'youtube-transcript';
@@ -176,22 +178,36 @@ app.post('/api/ai/speech', checkQuota, async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 app.get('/api/transcript', async (req, res) => {
+   console.log('🔍 Transcript route çalıştı - YENİ KOD');
   const { videoId } = req.query;
   if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
-  try {
-    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
-    const formatted = transcript.map((item, index) => ({
-      id: index,
-      start: item.offset / 1000,
-      end: (item.offset + item.duration) / 1000,
-      text: item.text
-    }));
-    res.json(formatted);
-  } catch (error) {
-    console.error('Transcript error:', error);
-    res.status(500).json({ error: 'Transkript alınamadı. Videonun altyazısı kapalı olabilir.' });
+  const proxies = [
+    'http://178.62.193.19:3128',
+    'http://51.159.115.233:3128',
+    'http://20.111.54.16:8123',
+  ];
+
+  for (const proxyUrl of proxies) {
+    try {
+      const dispatcher = new ProxyAgent(proxyUrl);
+      const customFetch = (url, options = {}) =>
+        undiciFetch(url, { ...options, dispatcher });
+
+      const transcript = await YoutubeTranscript.fetchTranscript(videoId, { fetch: customFetch });
+      const formatted = transcript.map((item, index) => ({
+        id: index,
+        start: item.offset / 1000,
+        end: (item.offset + item.duration) / 1000,
+        text: item.text
+      }));
+      return res.json(formatted);
+    } catch (err) {
+      console.error(`Proxy başarısız (${proxyUrl}):`, err.message);
+    }
   }
+
+  res.status(500).json({ error: 'Transkript alınamadı. Tüm proxler başarısız oldu.' });
 });
 
 app.get(/(.*)/, (req, res) => {

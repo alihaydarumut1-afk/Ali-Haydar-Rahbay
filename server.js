@@ -1,9 +1,13 @@
-require('dotenv').config();
-const { HttpsProxyAgent } = require('https-proxy-agent');
-const express = require('express');
-const cors = require('cors');
-const { YoutubeTranscript } = require('youtube-transcript');
-const path = require('path');
+import { fetch as undiciFetch, ProxyAgent } from 'undici';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+import express from 'express';
+import cors from 'cors';
+import { YoutubeTranscript } from 'youtube-transcript';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.set('trust proxy', 1);
@@ -11,22 +15,25 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 const userQuotas = new Map();
-const DAILY_AI_LIMIT = 2;
+const DAILY_AI_LIMIT = 30;
 
 const checkQuota = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress;
   const incomingApiKey = req.body?.apiKey || '';
 
+  // 1. Admin key ile gelen istekler sınırsız
   const adminKey = process.env.ADMIN_API_KEY;
   if (adminKey && incomingApiKey === adminKey) {
     req.isAdmin = true;
     return next();
   }
 
+  // 2. Localhost sınırsız
   if (ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
     return next();
   }
 
+  // 3. Normal kullanıcılar kota kontrolüne tabi
   const today = new Date().toISOString().split('T')[0];
   const key = `${ip}_${today}`;
   const usage = userQuotas.get(key) || 0;
@@ -37,6 +44,7 @@ const checkQuota = (req, res, next) => {
   next();
 };
 
+// Admin key gelirse kendi API key'ini kullan, yoksa kullanıcının key'ini kullan
 const resolveApiKey = (req, userProvidedKey) => {
   if (req.isAdmin) {
     return process.env.DEFAULT_API_KEY || userProvidedKey;
@@ -48,7 +56,6 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
   try {
     const { prompt, expectJson, maxTokens, apiKey } = req.body;
     const key = resolveApiKey(req, apiKey);
-    console.log('Kullanılan key:', key?.substring(0, 20));
     if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
 
     let content = '';
@@ -58,10 +65,7 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-          messages: [
-  { role: 'system', content: 'You are a helpful assistant. Always respond in valid JSON format when asked.' },
-  { role: 'user', content: prompt }
-],
+          messages: [{ role: 'system', content: prompt }],
           temperature: 0.3,
           max_tokens: maxTokens || (expectJson ? 1500 : 800),
           ...(expectJson ? { response_format: { type: 'json_object' } } : {})
@@ -171,9 +175,10 @@ app.post('/api/ai/speech', checkQuota, async (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'note-app', 'dist')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 app.get('/api/transcript', async (req, res) => {
+   console.log('🔍 Transcript route çalıştı - YENİ KOD');
   const { videoId } = req.query;
   if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
@@ -185,9 +190,9 @@ app.get('/api/transcript', async (req, res) => {
 
   for (const proxyUrl of proxies) {
     try {
-      const agent = new HttpsProxyAgent(proxyUrl);
+      const dispatcher = new ProxyAgent(proxyUrl);
       const customFetch = (url, options = {}) =>
-        fetch(url, { ...options, agent });
+        undiciFetch(url, { ...options, dispatcher });
 
       const transcript = await YoutubeTranscript.fetchTranscript(videoId, { fetch: customFetch });
       const formatted = transcript.map((item, index) => ({
@@ -202,11 +207,11 @@ app.get('/api/transcript', async (req, res) => {
     }
   }
 
-  res.status(500).json({ error: 'Transkript alınamadı. Tüm proxy\'ler başarısız oldu.' });
+  res.status(500).json({ error: 'Transkript alınamadı. Tüm proxler başarısız oldu.' });
 });
 
 app.get(/(.*)/, (req, res) => {
-  res.sendFile(path.join(__dirname, 'note-app', 'dist', 'index.html'));
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
