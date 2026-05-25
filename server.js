@@ -1,22 +1,9 @@
-<<<<<<< HEAD
-import { fetch as undiciFetch, ProxyAgent } from 'undici';
-import { HttpsProxyAgent } from 'https-proxy-agent';
-import express from 'express';
-import cors from 'cors';
-import { YoutubeTranscript } from 'youtube-transcript';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-=======
 require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const ROOT = process.cwd();
->>>>>>> 59f1940 (fix: render backend url)
 
 const app = express();
 app.set('trust proxy', 1);
@@ -24,7 +11,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
 const userQuotas = new Map();
-const DAILY_AI_LIMIT = 30;
+const DAILY_AI_LIMIT = 2;
 
 const isLocalhost = (ip) => {
   if (!ip) return false;
@@ -40,24 +27,17 @@ const checkQuota = (req, res, next) => {
   const ip = req.ip || req.connection.remoteAddress || '';
   const incomingApiKey = req.body?.apiKey || '';
 
-  // 1. Admin key ile gelen istekler sınırsız
   const adminKey = process.env.ADMIN_API_KEY;
   if (adminKey && incomingApiKey === adminKey) {
     req.isAdmin = true;
     return next();
   }
 
-<<<<<<< HEAD
-  // 2. Localhost sınırsız
-  if (ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1')) {
-=======
   if (isLocalhost(ip)) {
     req.isLocalhost = true;
->>>>>>> 59f1940 (fix: render backend url)
     return next();
   }
 
-  // 3. Normal kullanıcılar kota kontrolüne tabi
   const today = new Date().toISOString().split('T')[0];
   const quotaKey = `${ip}_${today}`;
   const usage = userQuotas.get(quotaKey) || 0;
@@ -72,29 +52,15 @@ const checkQuota = (req, res, next) => {
   next();
 };
 
-// Admin key gelirse kendi API key'ini kullan, yoksa kullanıcının key'ini kullan
 const resolveApiKey = (req, userProvidedKey) => {
   return process.env.DEFAULT_API_KEY || userProvidedKey || '';
 };
 
-// ──────────────────────────────────────────────
-// AI CHAT
-// ──────────────────────────────────────────────
 app.post('/api/ai/chat', checkQuota, async (req, res) => {
   try {
     const { prompt, expectJson, maxTokens, apiKey } = req.body;
     const key = resolveApiKey(req, apiKey);
-<<<<<<< HEAD
-=======
 
-    console.log(
-      'CHAT | KEY:', key?.substring(0, 15),
-      '| isAdmin:', !!req.isAdmin,
-      '| isLocalhost:', !!req.isLocalhost,
-      '| IP:', req.ip
-    );
-
->>>>>>> 59f1940 (fix: render backend url)
     if (!key) throw new Error('API şifresi eksik! Lütfen arayüzden şifrenizi girin.');
 
     let content = '';
@@ -108,14 +74,10 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
-<<<<<<< HEAD
-          messages: [{ role: 'system', content: prompt }],
-=======
           messages: [
             { role: 'system', content: 'You are a helpful assistant. Always respond in valid JSON format when asked.' },
             { role: 'user', content: prompt }
           ],
->>>>>>> 59f1940 (fix: render backend url)
           temperature: 0.3,
           max_tokens: maxTokens || (expectJson ? 1500 : 800),
           ...(expectJson ? { response_format: { type: 'json_object' } } : {})
@@ -151,9 +113,6 @@ app.post('/api/ai/chat', checkQuota, async (req, res) => {
   }
 });
 
-// ──────────────────────────────────────────────
-// TRANSCRIBE (Ses → Metin)
-// ──────────────────────────────────────────────
 app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
   try {
     const { audioBase64, mimeType, apiKey } = req.body;
@@ -210,9 +169,6 @@ app.post('/api/ai/transcribe', checkQuota, async (req, res) => {
   }
 });
 
-// ──────────────────────────────────────────────
-// SPEECH (Metin → Ses)
-// ──────────────────────────────────────────────
 app.post('/api/ai/speech', checkQuota, async (req, res) => {
   try {
     const { text, voice, apiKey } = req.body;
@@ -250,92 +206,43 @@ app.post('/api/ai/speech', checkQuota, async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-app.use(express.static(path.join(__dirname, 'dist')));
-
-=======
-// ──────────────────────────────────────────────
-// TRANSCRIPT (YouTube - youtube-transcript paketi)
-// ──────────────────────────────────────────────
->>>>>>> 59f1940 (fix: render backend url)
 app.get('/api/transcript', async (req, res) => {
   const { videoId } = req.query;
   if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
   try {
-<<<<<<< HEAD
-    const { Innertube } = await import('youtubei.js');
-    const youtube = await Innertube.create();
-    
-    const info = await youtube.getInfo(videoId);
-    const transcriptData = await info.getTranscript();
-
-    const segments = transcriptData?.transcript?.content?.body?.initial_segments || [];
-
-    const formatted = segments
-      .filter(seg => seg.snippet?.runs?.[0]?.text)
-      .map((seg, index) => ({
-        id: index,
-        start: Number(seg.start_ms) / 1000,
-        end: Number(seg.end_ms) / 1000,
-        text: seg.snippet.runs.map(r => r.text).join('')
-      }));
-
-    if (formatted.length === 0) throw new Error('Transcript boş geldi');
-
-    res.json(formatted);
-  } catch (error) {
-    console.error('Transcript error:', error.message);
-    res.status(500).json({ error: 'Transkript alınamadı: ' + error.message });
-  }
-=======
     const { YoutubeTranscript } = require('youtube-transcript');
     const raw = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' });
 
     if (!raw || raw.length === 0) {
-      return res.status(404).json({ error: 'Bu video için İngilizce transkript bulunamadı. Videonun CC altyazısı olduğundan emin olun.' });
+      return res.status(404).json({ error: 'Bu video için İngilizce transkript bulunamadı.' });
     }
 
-    // Frontend'in beklediği formata dönüştür: { id, text, start, end }
     const transcript = raw.map((item, idx) => ({
       id: idx,
       text: item.text,
-      start: item.offset / 1000,        // ms → saniye
+      start: item.offset / 1000,
       end: (item.offset + item.duration) / 1000
     }));
 
     res.json(transcript);
   } catch (err) {
     console.error('Transcript error:', err.message);
-    const msg = err.message?.includes('no longer available')
-      ? 'Video artık mevcut değil.'
-      : err.message?.includes('disabled')
-      ? 'Bu videonun altyazısı devre dışı bırakılmış.'
-      : 'Transkript alınamadı: ' + err.message;
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'Transkript alınamadı: ' + err.message });
   }
 });
 
-// ──────────────────────────────────────────────
-// STATIC & SPA FALLBACK
-// ──────────────────────────────────────────────
 app.use(express.static(path.join(ROOT, 'note-app', 'dist')));
 
 app.get(/(.*)/, (req, res) => {
   res.sendFile(path.join(ROOT, 'note-app', 'dist', 'index.html'));
->>>>>>> 59f1940 (fix: render backend url)
 });
 
-// ──────────────────────────────────────────────
-// SUNUCUYU BAŞLAT
-// ──────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`===================================================`);
   console.log(`✅ Sunucu çalışıyor: http://localhost:${PORT}`);
-  console.log(`📁 ROOT: ${ROOT}`);
   console.log(`🔑 Admin modu   : ${process.env.ADMIN_API_KEY ? 'Aktif' : 'Pasif'}`);
   console.log(`🔑 Default key  : ${process.env.DEFAULT_API_KEY ? 'Var ✅' : 'YOK ❌'}`);
-  console.log(`🔑 Key önizleme : ${process.env.DEFAULT_API_KEY?.substring(0, 15) || 'TANIMSIZ'}`);
   console.log(`===================================================`);
 });
