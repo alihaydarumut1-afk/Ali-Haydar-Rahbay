@@ -23,6 +23,34 @@ const mapPartOfSpeech = (pos) => {
   return 'Other'
 }
 
+// Yardımcı: AI'dan gelen yanıtı her zaman düz string'e çevir
+function extractPlainText(raw) {
+  if (!raw) return ''
+  let text = typeof raw === 'string' ? raw.trim() : String(raw).trim()
+
+  // JSON obje/array olarak parse edilebiliyorsa içinden metni çıkar
+  try {
+    // Markdown kod bloğu varsa temizle
+    const cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim()
+    const parsed = JSON.parse(cleaned)
+    if (typeof parsed === 'string') return parsed.trim()
+    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      // Öncelikli anahtarlar
+      const keys = ['topic', 'text', 'content', 'message', 'result', 'response', 'answer']
+      for (const key of keys) {
+        if (typeof parsed[key] === 'string' && parsed[key].trim()) return parsed[key].trim()
+      }
+      // Hiçbiri yoksa ilk string değeri döndür
+      const firstStr = Object.values(parsed).find(v => typeof v === 'string' && v.trim())
+      if (firstStr) return firstStr.trim()
+    }
+  } catch {
+    // JSON değil, olduğu gibi kullan
+  }
+
+  return text
+}
+
 async function fetchAI(prompt, expectJson = false) {
   const response = await fetch(`${getBaseUrl()}/api/ai/chat`, {
     method: 'POST',
@@ -135,9 +163,9 @@ export default function WritingSection() {
   const handleGenerateTopic = async () => {
     setIsGeneratingTopic(true)
     try {
-      const prompt = `You are an expert English examiner. Generate a single, highly realistic essay topic for the ${examType} exam. The difficulty should be suitable for a B1-B2 level English learner. Return ONLY the topic text, nothing else.`
+      const prompt = `You are an expert English examiner. Generate a single, highly realistic essay topic for the ${examType} exam. The difficulty should be suitable for a B1-B2 level English learner. Return ONLY the plain topic text as a sentence or two. Do NOT wrap it in JSON, do NOT use quotes, brackets, or any formatting. Just the raw topic text.`
       const result = await fetchAI(prompt, false)
-      setGeneratedTopic(result.trim())
+      setGeneratedTopic(extractPlainText(result))
       setUserEssay('')
       setAiFeedback(null)
       setSelectedId(null)
@@ -169,7 +197,7 @@ export default function WritingSection() {
     setUserEssay(entry.text || '')
     setAiFeedback(entry.analysis || null)
     setExamType(entry.mode || 'IELTS Academic (Task 2)')
-    setGeneratedTopic(entry.topic || '')
+    setGeneratedTopic(extractPlainText(entry.topic || ''))
     setSelectedId(entry.id)
   }
 
@@ -282,16 +310,24 @@ export default function WritingSection() {
             <div className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-zinc-600 dark:text-zinc-300 eye-care:text-[#5C4B37]">Exam Type</label>
-                <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+                <div className="flex gap-2 p-1 bg-slate-100 dark:bg-zinc-700 rounded-xl w-fit">
                   <button 
                     onClick={() => setExamType('IELTS Academic (Task 2)')} 
-                    className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${examType === 'IELTS Academic (Task 2)' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
+                      examType === 'IELTS Academic (Task 2)'
+                        ? 'bg-white text-indigo-700 shadow-sm dark:bg-zinc-600 dark:text-indigo-400'
+                        : 'text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300'
+                    }`}
                   >
                     IELTS Academic
                   </button>
                   <button 
                     onClick={() => setExamType('TOEFL iBT (Independent)')} 
-                    className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${examType === 'TOEFL iBT (Independent)' ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
+                      examType === 'TOEFL iBT (Independent)'
+                        ? 'bg-white text-indigo-700 shadow-sm dark:bg-zinc-600 dark:text-indigo-400'
+                        : 'text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300'
+                    }`}
                   >
                     TOEFL iBT
                   </button>
@@ -412,13 +448,13 @@ export default function WritingSection() {
                   </div>
                 )}
 
-                {/* Overall Feedback — 🔴 DÜZELTİLDİ */}
+                {/* Overall Feedback */}
                 <div className="rounded-2xl bg-indigo-50/50 border border-indigo-100 p-5">
                   <h4 className="font-bold text-indigo-900 dark:text-indigo-400 mb-2 flex items-center gap-2"><CheckCircle size={16} /> Overall Feedback</h4>
                   <p className="text-sm text-slate-900 dark:text-zinc-100 leading-relaxed font-semibold">{aiFeedback.overall_feedback}</p>
                 </div>
 
-                {/* Criterion-specific feedback cards — 🔴 DÜZELTİLDİ */}
+                {/* Criterion-specific feedback cards */}
                 {bandCriteria.map(({ key, label, icon, bg, border, text, darkBg, darkBorder, darkText, feedbackKey }) => (
                   aiFeedback[feedbackKey] && (
                     <div key={key} className={`rounded-2xl ${bg} ${border} ${darkBg} ${darkBorder} border p-5`}>
@@ -435,7 +471,7 @@ export default function WritingSection() {
                   )
                 ))}
 
-                {/* Structure Tips — 🔴 DÜZELTİLDİ */}
+                {/* Structure Tips */}
                 {aiFeedback.structure_tips && (
                   <div className="rounded-2xl bg-amber-50/50 border border-amber-100 p-5">
                     <h4 className="font-bold text-amber-900 dark:text-amber-400 mb-2 flex items-center gap-2"><FileText size={16} /> Structure Tips</h4>
@@ -459,7 +495,6 @@ export default function WritingSection() {
                             </div>
                             {(v.meaning || v.example) && (
                               <div className="mt-1 flex flex-col gap-1 text-sm">
-                                {/* 🔴 DÜZELTİLDİ: Türkçe anlam ve örnek cümle koyu renk */}
                                 {v.meaning && <p className="text-slate-900 dark:text-zinc-100 font-semibold"><span className="font-bold">Meaning:</span> {v.meaning}</p>}
                                 {v.example && <p className="italic text-slate-800 dark:text-zinc-200 font-medium"><span className="font-bold not-italic">Ex:</span> "{v.example}"</p>}
                               </div>
@@ -511,7 +546,7 @@ export default function WritingSection() {
                           </div>
                           <button type="button" onClick={(e) => handleDelete(entry.id, e)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-rose-100 hover:text-rose-600" title="Delete"><Trash2 size={16} /></button>
                         </div>
-                        <p className="text-xs font-bold text-indigo-600 mb-1 line-clamp-1">{entry.topic || 'Custom Topic'}</p>
+                        <p className="text-xs font-bold text-indigo-600 mb-1 line-clamp-1">{extractPlainText(entry.topic) || 'Custom Topic'}</p>
                         <p className="line-clamp-2 text-xs text-slate-500 font-medium">{entry.text}</p>
                       </div>
                     ))}

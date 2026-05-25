@@ -26,27 +26,27 @@ export default function NoteForm({ selectedNote, onCancel, onSave }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-300 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-600 dark:shadow-none">
+    <form onSubmit={handleSubmit} className="rounded-3xl border border-slate-300 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-600 dark:shadow-none eye-care:bg-[#FDF6E3] eye-care:border-[#EAE0C8]">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-black dark:text-white">{selectedNote ? 'Notu Düzenle' : 'Yeni Not Ekle'}</h2>
-        <p className="mt-2 text-sm font-medium text-slate-600 dark:text-slate-200">Sadeliğe odaklanan form ile hızlıca not ekleyin veya güncelleyin.</p>
+        <h2 className="text-2xl font-bold text-black dark:text-white eye-care:text-[#3B2F2F]">{selectedNote ? 'Notu Düzenle' : 'Yeni Not Ekle'}</h2>
+        <p className="mt-2 text-sm font-medium text-slate-600 dark:text-slate-200 eye-care:text-[#5C4B37]">Sadeliğe odaklanan form ile hızlıca not ekleyin veya güncelleyin.</p>
       </div>
 
-      <label className="mb-2 block text-sm font-bold text-black dark:text-white">Başlık</label>
+      <label className="mb-2 block text-sm font-bold text-black dark:text-white eye-care:text-[#3B2F2F]">Başlık</label>
       <input
         value={title}
         onChange={(event) => setTitle(event.target.value)}
         placeholder="Not başlığını girin"
-        className="mb-4 w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400"
+        className="mb-4 w-full rounded-2xl border-2 border-slate-300 bg-white px-4 py-3 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400 eye-care:bg-[#F4EAD5] eye-care:border-[#C9B99A] eye-care:text-[#3B2F2F] eye-care:focus:border-indigo-400"
       />
 
-      <label className="mb-2 block text-sm font-bold text-black dark:text-white">Açıklama</label>
+      <label className="mb-2 block text-sm font-bold text-black dark:text-white eye-care:text-[#3B2F2F]">Açıklama</label>
       <textarea
         value={content}
         onChange={(event) => setContent(event.target.value)}
         rows="6"
         placeholder="Notunuzun detaylarını ekleyin"
-        className="mb-5 w-full rounded-3xl border-2 border-slate-300 bg-white px-4 py-4 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400"
+        className="mb-5 w-full rounded-3xl border-2 border-slate-300 bg-white px-4 py-4 text-black placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-500 dark:bg-black dark:text-white dark:placeholder:text-slate-300 dark:focus:border-indigo-400 eye-care:bg-[#F4EAD5] eye-care:border-[#C9B99A] eye-care:text-[#3B2F2F] eye-care:focus:border-indigo-400"
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
