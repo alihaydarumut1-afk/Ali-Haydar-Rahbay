@@ -1,22 +1,18 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
-const { startBackendServer } = require('./server.js');
 
-async function createWindow () {
+function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
-    autoHideMenuBar: true, // Üstteki rahatsız edici menü çubuğunu gizler
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
-  // Arka plan sunucusunu başlatıyoruz ve atanan portu alıyoruz
-  const port = await startBackendServer();
-  
-  win.loadURL(`http://localhost:${port}`);
+  win.loadFile(path.join(__dirname, 'note-app', 'dist', 'index.html'));
 }
 
 app.whenReady().then(createWindow);
