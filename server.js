@@ -217,23 +217,26 @@ app.get('/api/transcript', async (req, res) => {
       lang: 'en',
       location: 'US',
       retrieve_player: false,
+      generate_session_locally: true,
     });
 
     const info = await youtube.getInfo(videoId);
     const transcriptData = await info.getTranscript();
 
-    if (!transcriptData?.transcript?.content?.body?.initial_segments) {
+    const segments = transcriptData?.transcript?.content?.body?.initial_segments;
+
+    if (!segments || segments.length === 0) {
       return res.status(404).json({ error: 'Bu video için İngilizce transkript bulunamadı.' });
     }
 
-    const segments = transcriptData.transcript.content.body.initial_segments;
-
-    const transcript = segments.map((segment, idx) => ({
-      id: idx,
-      text: segment.snippet?.text || '',
-      start: (segment.start_ms || 0) / 1000,
-      end: (segment.end_ms || 0) / 1000,
-    })).filter(item => item.text.trim() !== '');
+    const transcript = segments
+      .filter(seg => seg.snippet?.text)
+      .map((segment, idx) => ({
+        id: idx,
+        text: segment.snippet.text.trim(),
+        start: (segment.start_ms || 0) / 1000,
+        end: (segment.end_ms || 0) / 1000,
+      }));
 
     res.json(transcript);
   } catch (err) {
