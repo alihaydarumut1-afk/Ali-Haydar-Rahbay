@@ -165,7 +165,7 @@ export default function ImmersionStudio() {
     // En güvenilir yöntem olan Arka Plan Sunucusu (Local Server - server.js) üzerinden çekim
     try {
       // Dinamik port desteği: Uygulama hangi porttaysa o portu kullanır (Dev modunda 3000).
-      const baseUrl = import.meta.env.VITE_API_URL || (window.location.origin === 'null' || window.location.origin.includes('file://') ? 'http://localhost:3000' : window.location.origin);
+      const baseUrl = 'https://note-app-server-44hm.onrender.com';
       const response = await fetch(
         `${baseUrl}/api/transcript?videoId=${videoId}`
       )
