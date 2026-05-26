@@ -211,19 +211,29 @@ app.get('/api/transcript', async (req, res) => {
   if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
   try {
-    const { YoutubeTranscript } = require('youtube-transcript');
-    const raw = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'en' });
+    const { Innertube } = require('youtubei.js');
 
-    if (!raw || raw.length === 0) {
+    const youtube = await Innertube.create({
+      lang: 'en',
+      location: 'US',
+      retrieve_player: false,
+    });
+
+    const info = await youtube.getInfo(videoId);
+    const transcriptData = await info.getTranscript();
+
+    if (!transcriptData?.transcript?.content?.body?.initial_segments) {
       return res.status(404).json({ error: 'Bu video için İngilizce transkript bulunamadı.' });
     }
 
-    const transcript = raw.map((item, idx) => ({
+    const segments = transcriptData.transcript.content.body.initial_segments;
+
+    const transcript = segments.map((segment, idx) => ({
       id: idx,
-      text: item.text,
-      start: item.offset / 1000,
-      end: (item.offset + item.duration) / 1000
-    }));
+      text: segment.snippet?.text || '',
+      start: (segment.start_ms || 0) / 1000,
+      end: (segment.end_ms || 0) / 1000,
+    })).filter(item => item.text.trim() !== '');
 
     res.json(transcript);
   } catch (err) {
