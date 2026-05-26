@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : 'https://note-app-server-44hm.onrender.com';
 
 // --- KALICI BELLEK (IndexedDB) YÖNETİMİ ---
 const DB_NAME = 'PronunciationDB'
