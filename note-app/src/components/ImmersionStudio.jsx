@@ -351,7 +351,7 @@ Return ONLY a valid JSON object. No explanation, no markdown, no backticks. Star
     }
   }
 
-  const playerOrigin = (typeof window !== 'undefined' && window.location.origin !== 'null' && !window.location.origin.includes('file://')) ? window.location.origin : 'https://www.youtube.com';
+  const playerOrigin = 'https://www.youtube.com';
 
   return (
     <div className="space-y-6">
@@ -405,7 +405,7 @@ style={{ backgroundColor: '#eef2ff', color: '#4338ca', borderColor: '#c7d2fe' }}
                   className="absolute top-0 left-0 w-full h-full bg-black"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+                  sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-forms allow-popups-to-escape-sandbox"
                   allowFullScreen
                 ></iframe>
               ) : (
