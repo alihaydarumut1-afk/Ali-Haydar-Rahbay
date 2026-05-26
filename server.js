@@ -211,32 +211,60 @@ app.get('/api/transcript', async (req, res) => {
   if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
   try {
-    const { Innertube } = require('youtubei.js');
-
-    const youtube = await Innertube.create({
-      lang: 'en',
-      location: 'US',
-      retrieve_player: false,
-      generate_session_locally: true,
+    // Önce video sayfasını çek
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
     });
+    const html = await pageRes.text();
 
-    const info = await youtube.getInfo(videoId);
-    const transcriptData = await info.getTranscript();
+    // Caption track URL'ini bul
+    const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
+    if (!captionMatch) {
+      return res.status(404).json({ error: 'Bu video için transkript bulunamadı.' });
+    }
 
-    const segments = transcriptData?.transcript?.content?.body?.initial_segments;
+    const captionTracks = JSON.parse(captionMatch[1]);
+    
+    // İngilizce track'i bul (önce manuel EN, sonra otomatik EN)
+    const enTrack = captionTracks.find(t => t.languageCode === 'en' && !t.kind) ||
+                    captionTracks.find(t => t.languageCode === 'en') ||
+                    captionTracks[0];
 
-    if (!segments || segments.length === 0) {
+    if (!enTrack) {
       return res.status(404).json({ error: 'Bu video için İngilizce transkript bulunamadı.' });
     }
 
-    const transcript = segments
-      .filter(seg => seg.snippet?.text)
-      .map((segment, idx) => ({
-        id: idx,
-        text: segment.snippet.text.trim(),
-        start: (segment.start_ms || 0) / 1000,
-        end: (segment.end_ms || 0) / 1000,
-      }));
+    // Caption XML'ini çek
+    const captionRes = await fetch(enTrack.baseUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      }
+    });
+    const xml = await captionRes.text();
+
+    // XML parse et
+    const items = [...xml.matchAll(/<text start="([\d.]+)" dur="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/g)];
+    
+    if (!items.length) {
+      return res.status(404).json({ error: 'Transkript içeriği boş.' });
+    }
+
+    const transcript = items.map((match, idx) => ({
+      id: idx,
+      text: match[3]
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/<[^>]+>/g, '')
+        .trim(),
+      start: parseFloat(match[1]),
+      end: parseFloat(match[1]) + parseFloat(match[2]),
+    })).filter(item => item.text !== '');
 
     res.json(transcript);
   } catch (err) {
