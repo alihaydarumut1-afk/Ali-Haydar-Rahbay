@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import useSavedCreations from '../hooks/useSavedCreations.js'
 import SavedCreationsDrawer from './SavedCreationsDrawer.jsx'
 
-const getBaseUrl = () => import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const getBaseUrl = () => 'https://note-app-server-44hm.onrender.com';
 
 // eye-care modunu DOM'dan okur
 function useEyeCare() {

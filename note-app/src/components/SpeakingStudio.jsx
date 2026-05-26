@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Bot, Mic, Square, Save, Trash2, RotateCcw, Plus, User } from 'lucide-react'
 import useWords from '../hooks/useWords.js'
 
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : 'https://note-app-server-44hm.onrender.com';
 const getUserApiKey = () => { if (typeof window !== 'undefined') return localStorage.getItem('USER_API_KEY') || ''; return ''; };
 
 async function fetchAI(prompt, expectJson = false, maxTokensOverride = null) {

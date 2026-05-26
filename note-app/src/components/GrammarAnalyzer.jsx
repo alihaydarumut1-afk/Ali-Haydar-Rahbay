@@ -56,7 +56,7 @@ export default function GrammarAnalyzer({ initialText, initialId, initialTitle, 
   const [editContent, setEditContent] = useState('')
   const [isFocusModeOpen, setIsFocusModeOpen] = useState(false)
   
-  const getBaseUrl = () => (typeof window !== 'undefined' && window.location.origin.includes('file://')) ? 'http://localhost:3000' : '';
+  const getBaseUrl = () => 'https://note-app-server-44hm.onrender.com';
 
   const currentItem = allItems.find(i => i.id === expandedId) || null
 

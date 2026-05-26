@@ -7,7 +7,7 @@ import useSavedCreations from '../hooks/useSavedCreations.js'
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : 'https://note-app-server-44hm.onrender.com';
 
 const getUserApiKey = () => {
   if (typeof window !== 'undefined') {

@@ -14,7 +14,7 @@ const getYouTubeId = (url) => {
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
 };
-const getBaseUrl = () => import.meta.env.VITE_API_URL || 'http://localhost:3000'; 
+const getBaseUrl = () => 'https://note-app-server-44hm.onrender.com'; 
 
 const getUserApiKey = () => {
   if (typeof window !== 'undefined') {

@@ -4,7 +4,7 @@ import useWords from '../hooks/useWords.js'
 import useWritingHabits from '../hooks/useWritingHabits.js'
 import UniversalFocusMode from './UniversalFocusMode.jsx'
 
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : 'https://note-app-server-44hm.onrender.com';
 
 const getUserApiKey = () => {
   if (typeof window !== 'undefined') {

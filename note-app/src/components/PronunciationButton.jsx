@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Volume2, Loader2 } from 'lucide-react'
 
-const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : window.location.origin;
+const getBaseUrl = () => (typeof window !== 'undefined' && (window.location.port === '5173' || window.location.origin.includes('file://'))) ? 'http://localhost:3000' : 'https://note-app-server-44hm.onrender.com';
 
 const getUserApiKey = () => {
   if (typeof window !== 'undefined') {
