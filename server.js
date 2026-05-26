@@ -211,60 +211,24 @@ app.get('/api/transcript', async (req, res) => {
   if (!videoId) return res.status(400).json({ error: 'videoId is required' });
 
   try {
-    // Önce video sayfasını çek
-    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    const response = await fetch(`https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&lang=en`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
+        'x-api-key': process.env.SUPADATA_API_KEY
       }
     });
-    const html = await pageRes.text();
 
-    // Caption track URL'ini bul
-    const captionMatch = html.match(/"captionTracks":\s*(\[.*?\])/);
-    if (!captionMatch) {
-      return res.status(404).json({ error: 'Bu video için transkript bulunamadı.' });
-    }
+    const data = await response.json();
 
-    const captionTracks = JSON.parse(captionMatch[1]);
-    
-    // İngilizce track'i bul (önce manuel EN, sonra otomatik EN)
-    const enTrack = captionTracks.find(t => t.languageCode === 'en' && !t.kind) ||
-                    captionTracks.find(t => t.languageCode === 'en') ||
-                    captionTracks[0];
-
-    if (!enTrack) {
+    if (!response.ok || !data.content) {
       return res.status(404).json({ error: 'Bu video için İngilizce transkript bulunamadı.' });
     }
 
-    // Caption XML'ini çek
-    const captionRes = await fetch(enTrack.baseUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      }
-    });
-    const xml = await captionRes.text();
-
-    // XML parse et
-    const items = [...xml.matchAll(/<text start="([\d.]+)" dur="([\d.]+)"[^>]*>([\s\S]*?)<\/text>/g)];
-    
-    if (!items.length) {
-      return res.status(404).json({ error: 'Transkript içeriği boş.' });
-    }
-
-    const transcript = items.map((match, idx) => ({
+    const transcript = data.content.map((item, idx) => ({
       id: idx,
-      text: match[3]
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/<[^>]+>/g, '')
-        .trim(),
-      start: parseFloat(match[1]),
-      end: parseFloat(match[1]) + parseFloat(match[2]),
-    })).filter(item => item.text !== '');
+      text: item.text,
+      start: item.offset / 1000,
+      end: (item.offset + item.duration) / 1000,
+    }));
 
     res.json(transcript);
   } catch (err) {
