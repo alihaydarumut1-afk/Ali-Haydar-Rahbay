@@ -74,19 +74,25 @@ export default function Sidebar({ isCollapsed, toggleSidebar }) {
   return (
     <aside className={`fixed left-0 top-0 z-[100] flex h-screen flex-col bg-[var(--bg-sidebar)] text-[var(--text-sidebar)] shadow-[4px_0_24px_rgba(0,0,0,0.05)] transition-all duration-300 ${isCollapsed ? 'w-20' : 'w-64'}`}>
       {/* Logo */}
-      <div className={`flex h-24 shrink-0 items-center border-b border-current/10 ${isCollapsed ? 'justify-center px-0' : 'justify-between px-6'}`}>
-        <Link to="/" className={`flex items-center gap-4 transition-transform hover:scale-105 ${isCollapsed ? 'justify-center' : ''}`}>
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-2xl font-black text-white shadow-lg shadow-[var(--accent)]/30">
-            N
-          </div>
-          {!isCollapsed && <span className="text-2xl font-extrabold tracking-tight text-inherit">NoteApp</span>}
-        </Link>
-        {!isCollapsed && (
-          <button onClick={toggleSidebar} className="flex h-8 w-8 items-center justify-center rounded-lg text-inherit opacity-60 transition hover:bg-black/10 hover:opacity-100" title="Collapse Menu">
-            <PanelLeftClose size={20} />
-          </button>
-        )}
-      </div>
+<div className={`flex h-24 shrink-0 items-center border-b border-current/10 ${isCollapsed ? 'justify-center px-0' : 'justify-between px-6'}`}>
+  <Link to="/" className={`flex items-center gap-4 transition-transform hover:scale-105 ${isCollapsed ? 'justify-center' : ''}`}>
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] shadow-lg shadow-[var(--accent)]/30">
+      <svg viewBox="0 0 32 32" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="4,4 9,4 16,26 11,26" fill="white"/>
+        <polygon points="28,4 23,4 16,26 21,26" fill="white"/>
+        <ellipse cx="16" cy="27" rx="4" ry="1.8" fill="rgba(255,255,255,0.6)"/>
+        <rect x="2.5" y="2.5" width="9" height="2.5" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+        <rect x="20.5" y="2.5" width="9" height="2.5" rx="1.2" fill="rgba(255,255,255,0.8)"/>
+      </svg>
+    </div>
+    {!isCollapsed && <span className="text-2xl font-extrabold tracking-tight text-inherit">NoteApp</span>}
+  </Link>
+  {!isCollapsed && (
+    <button onClick={toggleSidebar} className="flex h-8 w-8 items-center justify-center rounded-lg text-inherit opacity-60 transition hover:bg-black/10 hover:opacity-100" title="Collapse Menu">
+      <PanelLeftClose size={20} />
+    </button>
+  )}
+</div>
 
       {isCollapsed && (
         <div className="flex items-center justify-center border-b border-current/10 py-3">
